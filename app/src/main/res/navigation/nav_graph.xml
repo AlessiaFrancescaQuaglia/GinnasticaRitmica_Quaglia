@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/loginFragment">
+
+    <fragment
+        android:id="@+id/loginFragment"
+        android:name="com.example.ginnasticaritmica.LoginFragment"
+        android:label="Login"
+        tools:layout="@layout/fragment_login">
+
+        <action
+            android:id="@+id/action_login_to_coachDashboard"
+            app:destination="@id/coachDashboardFragment" />
+
+        <action
+            android:id="@+id/action_login_to_athleteDashboard"
+            app:destination="@id/athleteDashboardFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/coachDashboardFragment"
+        android:name="com.example.ginnasticaritmica.CoachDashboardFragment"
+        android:label="Dashboard Allenatrice"
+        tools:layout="@layout/fragment_coach_dashboard">
+
+        <action
+            android:id="@+id/action_coachDashboard_to_liveScoring"
+            app:destination="@id/liveScoringFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/liveScoringFragment"
+        android:name="com.example.ginnasticaritmica.LiveScoringFragment"
+        android:label="Live Scoring"
+        tools:layout="@layout/fragment_live_scoring" />
+
+
+    <fragment
+        android:id="@+id/athleteDashboardFragment"
+        android:name="com.example.ginnasticaritmica.AthleteDashboardFragment"
+        android:label="Area Atleta"
+        tools:layout="@layout/fragment_athlete_dashboard">
+
+        <action
+            android:id="@+id/action_athleteDashboard_to_mediaPlayer"
+            app:destination="@id/mediaPlayerFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/mediaPlayerFragment"
+        android:name="com.example.ginnasticaritmica.MediaPlayerFragment"
+        android:label="Media Player"
+        tools:layout="@layout/fragment_media_player" />
+
+</navigation>
