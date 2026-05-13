@@ -25,12 +25,12 @@ class LoginFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Se l'utente clicca sul bottone Allenatrice, viaggia verso la Coach Dashboard
-        binding.btnCoach.setOnClickListener {
+        // Se clicchi Accedi, vai alla Dashboard Allenatrice
+        binding.btnAccedi.setOnClickListener {
             findNavController().navigate(R.id.action_login_to_coachDashboard)
         }
 
-        // Se l'utente clicca sul bottone Atleta, viaggia verso la Athlete Dashboard
+        // Se clicchi Atleta, vai alla Dashboard Atleta
         binding.btnAthlete.setOnClickListener {
             findNavController().navigate(R.id.action_login_to_athleteDashboard)
         }

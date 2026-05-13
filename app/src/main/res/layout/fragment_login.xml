@@ -7,28 +7,50 @@
         android:layout_height="match_parent"
         android:orientation="vertical"
         android:gravity="center"
+        android:padding="32dp"
+        android:background="?android:attr/colorBackground"
         tools:context=".LoginFragment">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="RhythmicCore"
-            android:textSize="32sp"
+            android:textSize="36sp"
             android:textStyle="bold"
+            android:textColor="#BB86FC"
             android:layout_marginBottom="48dp" />
 
+        <EditText
+            android:id="@+id/emailInput"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:hint="Email Allenatrice"
+            android:inputType="textEmailAddress"
+            android:layout_marginBottom="16dp"/>
+
+        <EditText
+            android:id="@+id/passwordInput"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:hint="Password"
+            android:inputType="textPassword"
+            android:layout_marginBottom="32dp"/>
+
         <Button
-            android:id="@+id/btnCoach"
-            android:layout_width="250dp"
-            android:layout_height="wrap_content"
-            android:text="Entra come Allenatrice"
+            android:id="@+id/btnAccedi"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="Accedi"
+            android:textSize="18sp"
             android:layout_marginBottom="16dp" />
 
         <Button
             android:id="@+id/btnAthlete"
-            android:layout_width="250dp"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Entra come Atleta" />
+            android:text="Entra come Atleta"
+            android:textColor="#BB86FC" />
 
     </LinearLayout>
 </layout>
