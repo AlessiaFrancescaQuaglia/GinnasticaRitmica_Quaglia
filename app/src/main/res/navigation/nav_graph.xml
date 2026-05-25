@@ -12,11 +12,11 @@
         tools:layout="@layout/fragment_login">
 
         <action
-            android:id="@+id/action_login_to_coachDashboard"
+            android:id="@+id/action_loginFragment_to_coachDashboardFragment"
             app:destination="@id/coachDashboardFragment" />
 
         <action
-            android:id="@+id/action_login_to_athleteDashboard"
+            android:id="@+id/action_loginFragment_to_athleteDashboardFragment"
             app:destination="@id/athleteDashboardFragment" />
     </fragment>
 
@@ -29,6 +29,9 @@
         <action
             android:id="@+id/action_coachDashboard_to_liveScoring"
             app:destination="@id/liveScoringFragment" />
+        <action
+            android:id="@+id/action_coachDashboard_to_gestioneAtlete"
+            app:destination="@id/gestioneAtleteFragment" />
     </fragment>
 
     <fragment
@@ -54,5 +57,9 @@
         android:name="com.example.ginnasticaritmica.MediaPlayerFragment"
         android:label="Media Player"
         tools:layout="@layout/fragment_media_player" />
+    <fragment
+        android:id="@+id/gestioneAtleteFragment"
+        android:name="com.example.ginnasticaritmica.GestioneAtleteFragment"
+        android:label="GestioneAtleteFragment" />
 
 </navigation>

@@ -9,4 +9,14 @@ class CoachViewModel : ViewModel() {
     val atleteIscritte = MutableLiveData(7)
     val gareProgrammate = MutableLiveData(2)
     val masterclassAttive = MutableLiveData(2)
+    // NUOVO: Creiamo una lista di atlete osservabile (LiveData)
+    val atleteList = MutableLiveData<List<Atleta>>(
+        listOf(
+            Atleta("Sofia Rossi", "Gold"),
+            Atleta("Martina Bianchi", "Silver LE"),
+            Atleta("Giulia Verdi", "Silver LD"),
+            Atleta("Chiara Neri", "LC"),
+            Atleta("Elena Gialli", "LB")
+        )
+    )
 }

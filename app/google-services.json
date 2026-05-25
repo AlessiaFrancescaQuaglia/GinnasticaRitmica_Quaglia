@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "639403683299",
+    "project_id": "ginnasticaritmica-d97a3",
+    "storage_bucket": "ginnasticaritmica-d97a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:639403683299:android:b45c1f637fc9ef4bfe84d6",
+        "android_client_info": {
+          "package_name": "com.example.ginnasticaritmica"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA0LUIpVj4Kfd8WQJNDSiP-b3wYZhne1RI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

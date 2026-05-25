@@ -42,7 +42,7 @@ class CoachDashboardFragment : Fragment() {
                     Toast.makeText(requireContext(), "Cliccato su Gare", Toast.LENGTH_SHORT).show()
                 }
                 R.id.nav_atlete -> {
-                    Toast.makeText(requireContext(), "Cliccato su Gestione Atlete", Toast.LENGTH_SHORT).show()
+                    findNavController().navigate(R.id.action_coachDashboard_to_gestioneAtlete)
                 }
                 R.id.nav_logout -> {
                     // Torna alla schermata di Login
