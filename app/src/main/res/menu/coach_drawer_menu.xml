@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_gare"
+        android:title="Gare Programmate" />
+    <item
+        android:id="@+id/nav_masterclass"
+        android:title="Masterclass Attive" />
+    <item
+        android:id="@+id/nav_atlete"
+        android:title="Gestione Atlete" />
+    <item
+        android:id="@+id/nav_logout"
+        android:title="Esci dall'Account" />
+</menu>
