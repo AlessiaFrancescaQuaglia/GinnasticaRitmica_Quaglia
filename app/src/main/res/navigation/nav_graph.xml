@@ -60,6 +60,22 @@
     <fragment
         android:id="@+id/gestioneAtleteFragment"
         android:name="com.example.ginnasticaritmica.GestioneAtleteFragment"
-        android:label="GestioneAtleteFragment" />
+        android:label="GestioneAtleteFragment" >
+        <action
+            android:id="@+id/action_gestioneAtleteFragment_to_dettaglioAtletaFragment"
+            app:destination="@id/dettaglioAtletaFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/homeInfoFragment"
+        android:name="com.example.ginnasticaritmica.HomeInfoFragment"
+        android:label="HomeInfoFragment" >
+        <action
+            android:id="@+id/action_homeInfoFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+    </fragment>
+    <fragment
+        android:id="@+id/dettaglioAtletaFragment"
+        android:name="com.example.ginnasticaritmica.DettaglioAtletaFragment"
+        android:label="DettaglioAtletaFragment" />
 
 </navigation>

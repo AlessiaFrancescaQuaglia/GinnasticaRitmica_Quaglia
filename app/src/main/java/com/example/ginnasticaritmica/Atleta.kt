@@ -1,7 +1,16 @@
 package com.example.ginnasticaritmica
 
-// Questa è una Data Class: serve solo a contenere informazioni
 data class Atleta(
-    val nome: String,
-    val categoria: String
+    var id: String = "",
+    var nome: String = "",
+    var cognome: String = "",
+    var categoria: String = "",
+    var livello: String = "",
+    var telefonoContatto: String = "",
+    var dataNascita: String = "",
+    var attrezziUsati: List<String> = emptyList(),
+    var scadenzaCertificato: String = "",
+    var tracceMusicali: Map<String, String> = emptyMap(), // Firebase ora può riempire questa mappa!
+    var fotoUrl: String = "",
+    var idAllenatrice: String = ""
 )
