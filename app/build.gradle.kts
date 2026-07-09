@@ -41,6 +41,7 @@ android {
 
 dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
@@ -50,9 +51,10 @@ dependencies {
     implementation(libs.androidx.navigation.ui.ktx)
     // Importa Firebase BoM
     implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
-
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
 // Aggiunge Auth e Firestore
-    implementation("com.google.firebase:firebase-auth")
+    implementation("com.firebaseui:firebase-ui-auth:8.0.2")
+    implementation(libs.firebase.auth)
     implementation("com.google.firebase:firebase-firestore")
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Diciamo ad Android che può condividere i file temporanei creati dall'app -->
+    <cache-path name="cache_files" path="." />
+</paths>

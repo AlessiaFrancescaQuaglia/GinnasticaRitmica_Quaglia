@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#F5F5F5">
+
+        <TextView
+            android:id="@+id/tvNomeGaraTitolo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Caricamento gara..."
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textAlignment="center"
+            android:padding="16dp"
+            android:textColor="#333333"/>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="👧 Ginnaste compatibili coi filtri:"
+            android:paddingHorizontal="16dp"
+            android:paddingBottom="8dp"
+            android:textStyle="bold"
+            android:textColor="#6200EA"/>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvAtleteIscrizioni"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="80dp"/>
+
+    </LinearLayout>
+</layout>

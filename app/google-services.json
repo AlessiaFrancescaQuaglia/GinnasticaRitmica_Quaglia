@@ -12,7 +12,20 @@
           "package_name": "com.example.ginnasticaritmica"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "639403683299-aq3655bruaqi76d9dpm87sguaj2veeuh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ginnasticaritmica",
+            "certificate_hash": "888916b7a1193de36fc0cba7240efea1e6e5dab7"
+          }
+        },
+        {
+          "client_id": "639403683299-itt5sq0ag61lp3476rvo6ii95td06s64.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyA0LUIpVj4Kfd8WQJNDSiP-b3wYZhne1RI"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "639403683299-itt5sq0ag61lp3476rvo6ii95td06s64.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

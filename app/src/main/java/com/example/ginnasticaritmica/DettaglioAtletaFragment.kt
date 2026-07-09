@@ -3,6 +3,7 @@ package com.example.ginnasticaritmica
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Base64
@@ -16,9 +17,15 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.bumptech.glide.Glide
 import com.example.ginnasticaritmica.databinding.FragmentDettaglioAtletaBinding
+import com.github.mikephil.charting.data.PieData
+import com.github.mikephil.charting.data.PieDataSet
+import com.github.mikephil.charting.data.PieEntry
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import java.io.ByteArrayOutputStream
+import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 
 class DettaglioAtletaFragment : Fragment() {
@@ -33,25 +40,19 @@ class DettaglioAtletaFragment : Fragment() {
     private var mediaPlayer: MediaPlayer? = null
     private var tracceDisponibili: Map<String, String> = emptyMap()
 
-    // 1. NUOVO ATTIVATORE DELLA FOTOCAMERA (Prende un'anteprima leggera perfetta per i profili)
-// 1. Lanciatore per chiedere il permesso
+    // 1. Lanciatore per chiedere il permesso della fotocamera
     private val requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
-            // Se l'utente dice SI, apriamo la fotocamera
             takePictureLauncher.launch(null)
         } else {
-            // Se l'utente dice NO
             Toast.makeText(requireContext(), "Permesso fotocamera negato", Toast.LENGTH_SHORT).show()
         }
     }
 
-    // 2. Lanciatore per scattare la foto (rimane identico a prima)
+    // 2. Lanciatore per scattare la foto
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
-        if (bitmap != null) {
-            salvaFotoInBase64(bitmap)
-        } else {
-            Toast.makeText(requireContext(), "Azione annullata", Toast.LENGTH_SHORT).show()
-        }
+        if (bitmap != null) salvaFotoInBase64(bitmap)
+        else Toast.makeText(requireContext(), "Azione annullata", Toast.LENGTH_SHORT).show()
     }
 
     override fun onCreateView(
@@ -66,33 +67,30 @@ class DettaglioAtletaFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         atletaId = arguments?.getString("atletaId")
-        val atletaNome = arguments?.getString("atletaNome")
-        binding.tvNomeDettaglio.text = atletaNome
+        binding.tvNomeDettaglio.text = arguments?.getString("atletaNome")
+        binding.btnTornaIndietro.setOnClickListener {
+            findNavController().navigateUp()
+        }
 
         atletaId?.let { scaricaProfiloAtleta(it) }
 
         // --- GESTIONE BOTTONI PROFILO TECNICO ---
-
         binding.btnModificaLivello.setOnClickListener { mostraDialogLivello() }
         binding.btnModificaNascita.setOnClickListener { mostraCalendarioNascita() }
         binding.btnModificaAttrezzi.setOnClickListener { mostraDialogAttrezzi() }
+        binding.btnModificaGruppo.setOnClickListener { mostraDialogGruppo() }
         binding.btnEliminaAtleta.setOnClickListener { mostraConfermaEliminazione() }
 
-        // 2. COLLEGHIAMO IL BOTTONE ALLA FOTOCAMERA
-        // COLLEGHIAMO IL BOTTONE ALLA FOTOCAMERA (CON CONTROLLO PERMESSI)
+        // --- GESTIONE FOTOCAMERA ---
         binding.btnModificaFoto.setOnClickListener {
-            // Chiediamo ad Android se abbiamo già il permesso
             if (androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                // Abbiamo già il permesso, apriamo subito la fotocamera!
                 takePictureLauncher.launch(null)
             } else {
-                // Non abbiamo il permesso, mostriamo il popup per chiederlo!
                 requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
             }
         }
 
-        // --- GESTIONE BOTTONI CERTIFICATO E MUSICA ---
-
+        // --- GESTIONE CERTIFICATO E MUSICA ---
         binding.btnAggiornaCertificato.setOnClickListener {
             val cal = Calendar.getInstance()
             DatePickerDialog(requireContext(), { _, year, month, day ->
@@ -103,12 +101,41 @@ class DettaglioAtletaFragment : Fragment() {
         }
 
         binding.btnCaricaMusica.setOnClickListener { mostraDialogSceltaAttrezzoDropbox() }
-
         impostaBottoniRiproduzione()
+
+        // --- GESTIONE BOTTONI DIARIO PRESENZE (NUOVO) ---
+        binding.btnAggiungiPresenza.setOnClickListener {
+            val dataOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            atletaCorrente?.let {
+                val nuovePresenze = it.datePresenze.toMutableList()
+                if (!nuovePresenze.contains(dataOggi)) {
+                    nuovePresenze.add(dataOggi)
+                    it.datePresenze = nuovePresenze
+                    impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
+                    db.collection("Atlete").document(atletaId!!).update("datePresenze", FieldValue.arrayUnion(dataOggi))
+                } else {
+                    Toast.makeText(requireContext(), "Presenza di oggi già registrata!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        binding.btnAggiungiAssenza.setOnClickListener {
+            val dataOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+            atletaCorrente?.let {
+                val nuoveAssenze = it.dateAssenze.toMutableList()
+                if (!nuoveAssenze.contains(dataOggi)) {
+                    nuoveAssenze.add(dataOggi)
+                    it.dateAssenze = nuoveAssenze
+                    impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
+                    db.collection("Atlete").document(atletaId!!).update("dateAssenze", FieldValue.arrayUnion(dataOggi))
+                } else {
+                    Toast.makeText(requireContext(), "Assenza di oggi già registrata!", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 
-    // --- AGGIORNAMENTO GRAFICA E VISUALIZZAZIONE FOTO ---
-
+    // --- AGGIORNAMENTO GRAFICA ---
     private fun scaricaProfiloAtleta(id: String) {
         db.collection("Atlete").document(id).get().addOnSuccessListener { documento ->
             if (documento != null && documento.exists()) {
@@ -120,12 +147,15 @@ class DettaglioAtletaFragment : Fragment() {
                     binding.tvLivelloScelto.text = "Livello: ${if (it.livello.isNotEmpty()) it.livello else "Non inserito"}"
                     binding.tvDataNascita.text = "Data di nascita: ${if (it.dataNascita.isNotEmpty()) it.dataNascita else "Non inserita"}"
                     binding.tvAttrezziUsati.text = "Attrezzi dell'anno: ${if (it.attrezziUsati.isNotEmpty()) it.attrezziUsati.joinToString(", ") else "Nessuno"}"
+                    binding.tvGruppoScelto.text = "Gruppo: ${if (it.gruppo.isNotEmpty()) it.gruppo else "Non assegnato"}"
                     binding.tvScadenzaCertificato.text = if (it.scadenzaCertificato.isNotEmpty()) it.scadenzaCertificato else "Nessuna scadenza inserita"
                     binding.tvStatoMusica.text = if (it.tracceMusicali.isNotEmpty()) "Musica caricata" else "Nessuna traccia caricata"
 
                     aggiornaIntestazione()
 
-                    // 3. GLIDE ORA LEGGE SIA I LINK CHE LE FOTO TRASFORMATE IN TESTO
+                    // Mostriamo il grafico usando la grandezza delle liste!
+                    impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
+
                     if (it.fotoUrl.isNotEmpty()) {
                         try {
                             if (it.fotoUrl.startsWith("http")) {
@@ -149,12 +179,41 @@ class DettaglioAtletaFragment : Fragment() {
         binding.tvCategoriaDettaglio.text = "$liv • $cat"
     }
 
-    // 4. LA MAGIA: TRASFORMA LA FOTO IN TESTO (BASE64) E LA SALVA SU FIRESTORE
+    // --- FUNZIONE GRAFICO A TORTA (NUOVA) ---
+    private fun impostaGrafico(presenze: Int, assenze: Int) {
+        val chart = binding.pieChartPresenze
+
+        if (presenze == 0 && assenze == 0) {
+            chart.clear()
+            return
+        }
+
+        val entries = ArrayList<PieEntry>()
+        if (presenze > 0) entries.add(PieEntry(presenze.toFloat(), "Presenze"))
+        if (assenze > 0) entries.add(PieEntry(assenze.toFloat(), "Assenze"))
+
+        val dataSet = PieDataSet(entries, "")
+        dataSet.colors = listOf(
+            Color.parseColor("#03DAC5"), // Verde acqua per Presenze
+            Color.parseColor("#CF6679")  // Rosso per Assenze
+        )
+        dataSet.valueTextColor = Color.WHITE
+        dataSet.valueTextSize = 14f
+
+        chart.data = PieData(dataSet)
+        chart.description.isEnabled = false
+        chart.legend.textColor = Color.WHITE
+        chart.setHoleColor(Color.parseColor("#2A2A2A")) // Colore sfondo card
+        chart.setTransparentCircleAlpha(0)
+        chart.animateY(1000)
+        chart.invalidate()
+    }
+
+    // --- FUNZIONI FOTOCAMERA BASE64 ---
     private fun salvaFotoInBase64(bitmap: Bitmap) {
         Toast.makeText(requireContext(), "Elaborazione foto...", Toast.LENGTH_SHORT).show()
-
         val baos = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos) // Comprime al 70% per renderla leggerissima
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos)
         val data = baos.toByteArray()
         val stringaBase64 = Base64.encodeToString(data, Base64.NO_WRAP)
 
@@ -162,20 +221,15 @@ class DettaglioAtletaFragment : Fragment() {
             db.collection("Atlete").document(id).update("fotoUrl", stringaBase64)
                 .addOnSuccessListener {
                     Toast.makeText(requireContext(), "Foto profilo aggiornata!", Toast.LENGTH_SHORT).show()
-                    scaricaProfiloAtleta(id) // Ricarica la grafica per mostrare la foto
-                }
-                .addOnFailureListener {
-                    Toast.makeText(requireContext(), "Errore durante il salvataggio", Toast.LENGTH_SHORT).show()
+                    scaricaProfiloAtleta(id)
                 }
         }
     }
 
-    // --- FUNZIONI PROFILO TECNICO (LIVELLO, NASCITA E ATTREZZI) ---
-
+    // --- FUNZIONI PROFILO TECNICO ---
     private fun mostraDialogLivello() {
         val livelli = arrayOf("LA1", "LA2", "LB1", "LB2", "LC1", "LC2", "LD", "LE", "Gold")
-        AlertDialog.Builder(requireContext())
-            .setTitle("Imposta Livello ")
+        AlertDialog.Builder(requireContext()).setTitle("Imposta Livello ")
             .setItems(livelli) { _, quale ->
                 val livelloScelto = livelli[quale]
                 binding.tvLivelloScelto.text = "Livello: $livelloScelto"
@@ -188,12 +242,9 @@ class DettaglioAtletaFragment : Fragment() {
     private fun mostraCalendarioNascita() {
         val cal = Calendar.getInstance()
         val annoCorrente = cal.get(Calendar.YEAR)
-
         DatePickerDialog(requireContext(), { _, year, month, day ->
             var eta = annoCorrente - year
-            if (cal.get(Calendar.MONTH) < month || (cal.get(Calendar.MONTH) == month && cal.get(Calendar.DAY_OF_MONTH) < day)) {
-                eta--
-            }
+            if (cal.get(Calendar.MONTH) < month || (cal.get(Calendar.MONTH) == month && cal.get(Calendar.DAY_OF_MONTH) < day)) eta--
             val nuovaCategoria = when {
                 eta in 8..9 -> "Allieve 1"; eta == 10 -> "Allieve 2"; eta == 11 -> "Allieve 3"
                 eta == 12 -> "Allieve 4"; eta == 13 -> "Allieve 5 – Prejunior"; eta == 14 -> "Junior 1"
@@ -201,11 +252,9 @@ class DettaglioAtletaFragment : Fragment() {
                 eta >= 19 -> "Senior 3"; else -> "Pre-agonismo (< 8 anni)"
             }
             val dataScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
-
             binding.tvDataNascita.text = "Data di nascita: $dataScelta"
             atletaCorrente?.categoria = nuovaCategoria
             aggiornaIntestazione()
-
             atletaId?.let { id ->
                 val aggiornamenti = mapOf("dataNascita" to dataScelta, "categoria" to nuovaCategoria)
                 db.collection("Atlete").document(id).update(aggiornamenti)
@@ -218,19 +267,14 @@ class DettaglioAtletaFragment : Fragment() {
         val tuttiGliAttrezzi = arrayOf("Corpo Libero", "Fune", "Cerchio", "Palla", "Clavette", "Nastro")
         val attrezziGiaScelti = BooleanArray(tuttiGliAttrezzi.size)
         val listaAttuali = atletaCorrente?.attrezziUsati ?: emptyList()
-
-        for (i in tuttiGliAttrezzi.indices) {
-            if (listaAttuali.contains(tuttiGliAttrezzi[i])) attrezziGiaScelti[i] = true
-        }
+        for (i in tuttiGliAttrezzi.indices) if (listaAttuali.contains(tuttiGliAttrezzi[i])) attrezziGiaScelti[i] = true
         val nuovaListaAttrezzi = listaAttuali.toMutableList()
 
-        AlertDialog.Builder(requireContext())
-            .setTitle("Quali attrezzi usa quest'anno?")
+        AlertDialog.Builder(requireContext()).setTitle("Quali attrezzi usa quest'anno?")
             .setMultiChoiceItems(tuttiGliAttrezzi, attrezziGiaScelti) { _, quale, isChecked ->
                 val attrezzoCliccato = tuttiGliAttrezzi[quale]
                 if (isChecked) nuovaListaAttrezzi.add(attrezzoCliccato) else nuovaListaAttrezzi.remove(attrezzoCliccato)
-            }
-            .setPositiveButton("Salva") { _, _ ->
+            }.setPositiveButton("Salva") { _, _ ->
                 val listaPulita = nuovaListaAttrezzi.distinct()
                 binding.tvAttrezziUsati.text = "Attrezzi dell'anno: ${if (listaPulita.isNotEmpty()) listaPulita.joinToString(", ") else "Nessuno"}"
                 aggiornaDatoSuFirebase("attrezziUsati", listaPulita)
@@ -238,19 +282,25 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
+    private fun mostraDialogGruppo() {
+        val gruppi = arrayOf("ago", "preago", "promo1", "promo2", "corsi grandi", "corsi piccoli")
+        AlertDialog.Builder(requireContext()).setTitle("Assegna Gruppo")
+            .setItems(gruppi) { _, quale ->
+                val gruppoScelto = gruppi[quale]
+                binding.tvGruppoScelto.text = "Gruppo: $gruppoScelto"
+                atletaCorrente?.gruppo = gruppoScelto
+                aggiornaDatoSuFirebase("gruppo", gruppoScelto)
+            }.setNegativeButton("Annulla", null).show()
+    }
     private fun mostraConfermaEliminazione() {
-        AlertDialog.Builder(requireContext())
-            .setTitle("Eliminare Ginnasta?")
+        AlertDialog.Builder(requireContext()).setTitle("Eliminare Ginnasta?")
             .setMessage("Sei sicura di voler eliminare definitivamente questa atleta?")
             .setPositiveButton("Sì, Elimina") { _, _ -> eliminaAtleta() }
             .setNegativeButton("Annulla", null).show()
     }
 
     private fun aggiornaDatoSuFirebase(campo: String, nuovoValore: Any) {
-        atletaId?.let { id ->
-            db.collection("Atlete").document(id).update(campo, nuovoValore)
-                .addOnSuccessListener { Toast.makeText(requireContext(), "Dati aggiornati!", Toast.LENGTH_SHORT).show() }
-        }
+        atletaId?.let { id -> db.collection("Atlete").document(id).update(campo, nuovoValore) }
     }
 
     private fun eliminaAtleta() {
@@ -263,7 +313,6 @@ class DettaglioAtletaFragment : Fragment() {
     }
 
     // --- FUNZIONI CARICAMENTO DROPBOX ---
-
     private fun mostraDialogSceltaAttrezzoDropbox() {
         val attrezzi = arrayOf("Corpo Libero", "Fune", "Cerchio", "Palla", "Clavette", "Nastro")
         AlertDialog.Builder(requireContext()).setTitle("Scegli l'attrezzo")
@@ -294,7 +343,6 @@ class DettaglioAtletaFragment : Fragment() {
     }
 
     // --- FUNZIONI LETTORE MUSICALE ---
-
     private fun impostaBottoniRiproduzione() {
         binding.btnRiproduciMusica.setOnClickListener {
             if (tracceDisponibili.isEmpty()) return@setOnClickListener

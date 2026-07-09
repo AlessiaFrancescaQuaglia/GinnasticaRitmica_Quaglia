@@ -1,36 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
-<layout xmlns:android="http://schemas.android.com/apk/res/android">
+<layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
 
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:padding="24dp"
-        android:gravity="center_horizontal">
+        android:fillViewport="true"
+        android:background="?android:attr/colorBackground">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Benvenuti in RhythmicCore"
-            android:textSize="28sp"
-            android:textStyle="bold"
-            android:textColor="#6200EA"
-            android:layout_marginTop="32dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="La piattaforma ufficiale per l'analisi e la gestione della ginnastica ritmica."
-            android:textSize="16sp"
-            android:layout_marginVertical="24dp"
-            android:textAlignment="center"/>
-
-        <Button
-            android:id="@+id/btnVaiAlLogin"
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="ACCEDI ALL'AREA RISERVATA"
-            android:layout_marginTop="50dp" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp"
+            android:gravity="center_horizontal">
 
-    </LinearLayout>
+            <ImageView
+                android:id="@+id/imgLogoSocieta"
+                android:layout_width="120dp"
+                android:layout_height="120dp"
+                android:layout_marginTop="24dp"
+                android:src="@android:drawable/btn_star_big_on"
+                app:tint="#6200EA" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ASD GINNASTICA RITMICA"
+                android:textSize="26sp"
+                android:textStyle="bold"
+                android:textColor="#6200EA"
+                android:layout_marginTop="16dp"
+                android:textAlignment="center"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Passione, Eleganza e Movimento"
+                android:textSize="16sp"
+                android:textColor="#888888"
+                android:layout_marginBottom="32dp"
+                android:textStyle="italic"/>
+
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="40dp"
+                app:cardCornerRadius="12dp"
+                app:cardBackgroundColor="#2A2A2A"
+                app:cardElevation="4dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="I Nostri Corsi"
+                        android:textColor="#03DAC5"
+                        android:textStyle="bold"
+                        android:textSize="18sp"
+                        android:layout_marginBottom="8dp"/>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Benvenuti nella nostra piattaforma ufficiale. La nostra associazione offre corsi di Ginnastica Ritmica per tutte le eta, partendo dai corsi base (piccoli e grandi) fino ai settori agonistici e promozionali.\n\nSeleziona la tua area di riferimento qui sotto per accedere ai servizi digitali della societa."
+                        android:textColor="#FFFFFF"
+                        android:textSize="15sp"
+                        android:lineSpacingExtra="4dp"/>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <Button
+                android:id="@+id/btnAccedi"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:text="Accedi come atleta o allenatrice"
+                android:backgroundTint="#6200EA"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold"
+                android:layout_marginBottom="16dp"/>
+
+
+
+        </LinearLayout>
+    </ScrollView>
 </layout>

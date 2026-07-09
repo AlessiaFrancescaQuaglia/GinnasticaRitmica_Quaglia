@@ -12,5 +12,8 @@ data class Atleta(
     var scadenzaCertificato: String = "",
     var tracceMusicali: Map<String, String> = emptyMap(), // Firebase ora può riempire questa mappa!
     var fotoUrl: String = "",
-    var idAllenatrice: String = ""
+    var idAllenatrice: String = "",
+    var datePresenze: List<String> = emptyList(),
+    var dateAssenze: List<String> = emptyList(),
+    var gruppo: String = ""
 )

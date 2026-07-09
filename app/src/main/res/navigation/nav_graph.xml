@@ -3,18 +3,23 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/loginFragment">
+    app:startDestination="@id/homeInfoFragment"> <fragment
+    android:id="@+id/homeInfoFragment"
+    android:name="com.example.ginnasticaritmica.HomeInfoFragment"
+    android:label="HomeInfoFragment" >
+    <action
+        android:id="@+id/action_homeInfoFragment_to_loginFragment"
+        app:destination="@id/loginFragment" />
+</fragment>
 
     <fragment
         android:id="@+id/loginFragment"
         android:name="com.example.ginnasticaritmica.LoginFragment"
         android:label="Login"
         tools:layout="@layout/fragment_login">
-
         <action
             android:id="@+id/action_loginFragment_to_coachDashboardFragment"
             app:destination="@id/coachDashboardFragment" />
-
         <action
             android:id="@+id/action_loginFragment_to_athleteDashboardFragment"
             app:destination="@id/athleteDashboardFragment" />
@@ -25,14 +30,45 @@
         android:name="com.example.ginnasticaritmica.CoachDashboardFragment"
         android:label="Dashboard Allenatrice"
         tools:layout="@layout/fragment_coach_dashboard">
-
         <action
             android:id="@+id/action_coachDashboard_to_liveScoring"
             app:destination="@id/liveScoringFragment" />
         <action
             android:id="@+id/action_coachDashboard_to_gestioneAtlete"
             app:destination="@id/gestioneAtleteFragment" />
+        <action
+            android:id="@+id/action_coachDashboardFragment_to_presenzeFragment"
+            app:destination="@id/presenzeFragment" />
+        <action
+            android:id="@+id/action_coachDashboardFragment_to_listaGareFragment"
+            app:destination="@id/listaGareFragment" />
+        <action
+            android:id="@+id/action_coachDashboardFragment_to_iscrizioniGaraFragment"
+            app:destination="@id/iscrizioniGaraFragment" />
+        <action
+            android:id="@+id/action_coachDashboardFragment_to_profiloAllenatriceFragment2"
+            app:destination="@id/profiloAllenatriceFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/gestioneAtleteFragment"
+        android:name="com.example.ginnasticaritmica.GestioneAtleteFragment"
+        android:label="GestioneAtleteFragment" >
+        <action
+            android:id="@+id/action_gestioneAtleteFragment_to_dettaglioAtletaFragment"
+            app:destination="@id/dettaglioAtletaFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/dettaglioAtletaFragment"
+        android:name="com.example.ginnasticaritmica.DettaglioAtletaFragment"
+        android:label="DettaglioAtletaFragment" />
+
+    <fragment
+        android:id="@+id/presenzeFragment"
+        android:name="com.example.ginnasticaritmica.PresenzeFragment"
+        android:label="Registro Appello"
+        tools:layout="@layout/fragment_presenze" />
 
     <fragment
         android:id="@+id/liveScoringFragment"
@@ -40,13 +76,11 @@
         android:label="Live Scoring"
         tools:layout="@layout/fragment_live_scoring" />
 
-
     <fragment
         android:id="@+id/athleteDashboardFragment"
         android:name="com.example.ginnasticaritmica.AthleteDashboardFragment"
         android:label="Area Atleta"
         tools:layout="@layout/fragment_athlete_dashboard">
-
         <action
             android:id="@+id/action_athleteDashboard_to_mediaPlayer"
             app:destination="@id/mediaPlayerFragment" />
@@ -57,25 +91,21 @@
         android:name="com.example.ginnasticaritmica.MediaPlayerFragment"
         android:label="Media Player"
         tools:layout="@layout/fragment_media_player" />
+
     <fragment
-        android:id="@+id/gestioneAtleteFragment"
-        android:name="com.example.ginnasticaritmica.GestioneAtleteFragment"
-        android:label="GestioneAtleteFragment" >
-        <action
-            android:id="@+id/action_gestioneAtleteFragment_to_dettaglioAtletaFragment"
-            app:destination="@id/dettaglioAtletaFragment" />
-    </fragment>
+        android:id="@+id/listaGareFragment"
+        android:name="com.example.ginnasticaritmica.ListaGareFragment"
+        android:label="Gare Programmate"
+        tools:layout="@layout/fragment_lista_gare" />
+
     <fragment
-        android:id="@+id/homeInfoFragment"
-        android:name="com.example.ginnasticaritmica.HomeInfoFragment"
-        android:label="HomeInfoFragment" >
-        <action
-            android:id="@+id/action_homeInfoFragment_to_loginFragment"
-            app:destination="@id/loginFragment" />
-    </fragment>
+        android:id="@+id/iscrizioniGaraFragment"
+        android:name="com.example.ginnasticaritmica.IscrizioniGaraFragment"
+        android:label="Gestione Iscrizioni"
+        tools:layout="@layout/fragment_iscrizioni_gara" />
     <fragment
-        android:id="@+id/dettaglioAtletaFragment"
-        android:name="com.example.ginnasticaritmica.DettaglioAtletaFragment"
-        android:label="DettaglioAtletaFragment" />
+        android:id="@+id/profiloAllenatriceFragment"
+        android:name="com.example.ginnasticaritmica.ProfiloAllenatriceFragment"
+        android:label="ProfiloAllenatriceFragment" />
 
 </navigation>

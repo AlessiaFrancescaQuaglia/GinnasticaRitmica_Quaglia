@@ -10,6 +10,7 @@ import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.ginnasticaritmica.databinding.FragmentGestioneAtleteBinding
 import com.google.firebase.auth.FirebaseAuth
@@ -39,6 +40,10 @@ class GestioneAtleteFragment : Fragment() {
 
         // 1. Prepariamo il motore della lista scorrevole
         adapter = AtletaAdapter(listaAtlete)
+
+        binding.btnTornaIndietro.setOnClickListener {
+            findNavController().navigateUp()
+        }
         binding.recyclerViewAtlete.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerViewAtlete.adapter = adapter
 

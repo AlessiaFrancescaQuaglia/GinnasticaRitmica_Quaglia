@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:padding="16dp"
+    android:gravity="center_vertical"
+    android:layout_marginBottom="8dp"
+    android:background="#2A2A2A">
+
+    <TextView
+        android:id="@+id/tvNomeAtletaAppello"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:text="Nome Atleta"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"/>
+
+    <RadioGroup
+        android:id="@+id/radioGroupPresenza"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <RadioButton
+            android:id="@+id/rbPresente"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Presente"
+            android:textColor="#03DAC5"
+            android:buttonTint="#03DAC5"/>
+
+        <RadioButton
+            android:id="@+id/rbAssente"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Assente"
+            android:textColor="#CF6679"
+            android:buttonTint="#CF6679"
+            android:layout_marginStart="8dp"/>
+    </RadioGroup>
+
+</LinearLayout>

@@ -6,11 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
-import com.example.ginnasticaritmica.databinding.FragmentHomeInfoBinding // Importa il binding corretto
+import com.example.ginnasticaritmica.databinding.FragmentHomeInfoBinding
 
 class HomeInfoFragment : Fragment() {
 
-    // 1. Dichiarazione della variabile binding
     private var _binding: FragmentHomeInfoBinding? = null
     private val binding get() = _binding!!
 
@@ -18,7 +17,6 @@ class HomeInfoFragment : Fragment() {
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-        // 2. Inizializzazione del binding
         _binding = FragmentHomeInfoBinding.inflate(inflater, container, false)
         return binding.root
     }
@@ -26,14 +24,14 @@ class HomeInfoFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 3. Ora binding e findNavController funzionano!
-        binding.btnVaiAlLogin.setOnClickListener {
+        // Unico tasto "Accedi" che porta alla pagina di Login
+        binding.btnAccedi.setOnClickListener {
             findNavController().navigate(R.id.action_homeInfoFragment_to_loginFragment)
         }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        _binding = null // Pulizia per evitare errori di memoria
+        _binding = null
     }
 }

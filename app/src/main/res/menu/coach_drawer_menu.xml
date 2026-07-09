@@ -1,15 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Modificato qui: l'ID ora combacia con il NavGraph -->
     <item
-        android:id="@+id/nav_gare"
-        android:title="Gare Programmate" />
+        android:id="@+id/nav_home_dashboard"
+        android:icon="@android:drawable/ic_menu_view"
+        android:title="Dashboard Allenatrice" />
+
     <item
-        android:id="@+id/nav_masterclass"
-        android:title="Masterclass Attive" />
+        android:id="@+id/presenzeFragment"
+        android:icon="@android:drawable/ic_menu_agenda"
+        android:title="Registro Appello" />
+
     <item
         android:id="@+id/nav_atlete"
         android:title="Gestione Atlete" />
+
+    <item
+        android:id="@+id/listaGareFragment"
+        android:icon="@android:drawable/ic_menu_my_calendar"
+        android:title="Gare Programmate" />
+
+    <item
+        android:id="@+id/profiloAllenatriceFragment"
+        android:icon="@android:drawable/ic_menu_myplaces"
+        android:title="Profilo Allenatrice" />
+
     <item
         android:id="@+id/nav_logout"
         android:title="Esci dall'Account" />
+
 </menu>
