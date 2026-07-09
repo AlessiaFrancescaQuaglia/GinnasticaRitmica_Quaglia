@@ -105,7 +105,7 @@ class LoginFragment : Fragment() {
                 }
         }
 
-        // 3. TASTO: REGISTRATI (Crea l'account sul cloud e lo imposta come Allenatrice)
+        // 3. TASTO: REGISTRATI COME ALLENATRICE
         binding.btnRegistrati.setOnClickListener {
             val email = binding.emailInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
@@ -131,6 +131,44 @@ class LoginFragment : Fragment() {
                 }
                 .addOnFailureListener { e ->
                     Toast.makeText(requireContext(), "Errore registrazione: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+        }
+
+        // 3. TASTO: REGISTRATI COME ATLETA
+        binding.btnRegistratiAtleta.setOnClickListener {
+            val email = binding.emailInput.text.toString().trim()
+            val password = binding.passwordInput.text.toString().trim()
+
+            // 1. Controllo campi vuoti
+            if (email.isEmpty() || password.isEmpty()) {
+                Toast.makeText(requireContext(), "Inserisci Email e Password per registrarti", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // 2. Creazione account su Firebase Auth
+            FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener { task ->
+                    if (task.isSuccessful) {
+                        val user = task.result?.user
+                        if (user != null) {
+
+                            // 3. IL PUNTO CRUCIALE: Salviamo il ruolo "Atleta" nel Database
+                            val mappaUtente = hashMapOf(
+                                "email" to email,
+                                "ruolo" to "Atleta"
+                            )
+
+                            FirebaseFirestore.getInstance().collection("Utenti").document(user.uid)
+                                .set(mappaUtente)
+                                .addOnSuccessListener {
+                                    Toast.makeText(requireContext(), "Registrazione Atleta completata!", Toast.LENGTH_SHORT).show()
+                                    // Manda l'atleta direttamente alla sua Dashboard
+                                    findNavController().navigate(R.id.action_loginFragment_to_athleteDashboardFragment)
+                                }
+                        }
+                    } else {
+                        Toast.makeText(requireContext(), "Errore registrazione: ${task.exception?.message}", Toast.LENGTH_LONG).show()
+                    }
                 }
         }
 

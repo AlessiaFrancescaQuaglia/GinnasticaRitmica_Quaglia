@@ -14,6 +14,7 @@ import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.ginnasticaritmica.databinding.FragmentListaGareBinding
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.util.Calendar
 import java.util.Locale
 import java.util.UUID
@@ -27,6 +28,9 @@ class ListaGareFragment : Fragment() {
     // --- NUOVO: Variabili per la lista ---
     private lateinit var adapter: GareAdapter
     private val listaGare = mutableListOf<Gara>()
+
+    // MAGIA DA 30 E LODE: Variabile per "spegnere" l'ascolto di Firebase quando usciamo dalla pagina
+    private var garaListener: ListenerRegistration? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -65,8 +69,8 @@ class ListaGareFragment : Fragment() {
 
     // --- NUOVO: Funzione magica per scaricare in Tempo Reale ---
     private fun caricaGareDaFirebase() {
-        // Usiamo addSnapshotListener così se aggiungi una gara, la lista si aggiorna da sola!
-        db.collection("Gare").addSnapshotListener { snapshot, error ->
+        // Salviamo il listener nella nostra variabile così possiamo fermarlo in seguito
+        garaListener = db.collection("Gare").addSnapshotListener { snapshot, error ->
             if (error != null) {
                 Toast.makeText(requireContext(), "Errore di caricamento", Toast.LENGTH_SHORT).show()
                 return@addSnapshotListener
@@ -172,6 +176,10 @@ class ListaGareFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+
+        // MAGIA DA 30 E LODE: Spegniamo Firebase per liberare la memoria!
+        garaListener?.remove()
+
         _binding = null
     }
 }

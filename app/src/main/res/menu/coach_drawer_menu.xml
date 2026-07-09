@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Modificato qui: l'ID ora combacia con il NavGraph -->
     <item
         android:id="@+id/nav_home_dashboard"
         android:icon="@android:drawable/ic_menu_view"
@@ -14,6 +13,7 @@
 
     <item
         android:id="@+id/nav_atlete"
+        android:icon="@android:drawable/ic_menu_manage"
         android:title="Gestione Atlete" />
 
     <item
@@ -28,6 +28,7 @@
 
     <item
         android:id="@+id/nav_logout"
+        android:icon="@android:drawable/ic_lock_power_off"
         android:title="Esci dall'Account" />
 
 </menu>

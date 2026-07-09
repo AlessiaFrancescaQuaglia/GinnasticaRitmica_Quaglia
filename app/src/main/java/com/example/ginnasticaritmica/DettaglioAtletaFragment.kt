@@ -79,6 +79,32 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnModificaNascita.setOnClickListener { mostraCalendarioNascita() }
         binding.btnModificaAttrezzi.setOnClickListener { mostraDialogAttrezzi() }
         binding.btnModificaGruppo.setOnClickListener { mostraDialogGruppo() }
+
+        // --- NUOVO: GESTIONE MODIFICA EMAIL ---
+        binding.btnModificaEmail.setOnClickListener {
+            val inputEmail = EditText(requireContext())
+            inputEmail.hint = "Inserisci l'email della ginnasta"
+            inputEmail.inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+
+            AlertDialog.Builder(requireContext())
+                .setTitle("Collega/Modifica Email")
+                .setView(inputEmail)
+                .setPositiveButton("Salva") { _, _ ->
+                    val nuovaEmail = inputEmail.text.toString().trim().lowercase()
+                    if (nuovaEmail.isNotEmpty()) {
+                        atletaId?.let { id ->
+                            db.collection("Atlete").document(id).update("email", nuovaEmail)
+                                .addOnSuccessListener {
+                                    Toast.makeText(requireContext(), "Email aggiornata!", Toast.LENGTH_SHORT).show()
+                                    binding.tvEmailAtletaDettaglio.text = "Email di accesso: $nuovaEmail"
+                                }
+                        }
+                    }
+                }
+                .setNegativeButton("Annulla", null)
+                .show()
+        }
+
         binding.btnEliminaAtleta.setOnClickListener { mostraConfermaEliminazione() }
 
         // --- GESTIONE FOTOCAMERA ---
@@ -103,7 +129,7 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnCaricaMusica.setOnClickListener { mostraDialogSceltaAttrezzoDropbox() }
         impostaBottoniRiproduzione()
 
-        // --- GESTIONE BOTTONI DIARIO PRESENZE (NUOVO) ---
+        // --- GESTIONE BOTTONI DIARIO PRESENZE ---
         binding.btnAggiungiPresenza.setOnClickListener {
             val dataOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             atletaCorrente?.let {
@@ -135,7 +161,7 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    // --- AGGIORNAMENTO GRAFICA ---
+// --- AGGIORNAMENTO GRAFICA ---
     private fun scaricaProfiloAtleta(id: String) {
         db.collection("Atlete").document(id).get().addOnSuccessListener { documento ->
             if (documento != null && documento.exists()) {
@@ -150,6 +176,15 @@ class DettaglioAtletaFragment : Fragment() {
                     binding.tvGruppoScelto.text = "Gruppo: ${if (it.gruppo.isNotEmpty()) it.gruppo else "Non assegnato"}"
                     binding.tvScadenzaCertificato.text = if (it.scadenzaCertificato.isNotEmpty()) it.scadenzaCertificato else "Nessuna scadenza inserita"
                     binding.tvStatoMusica.text = if (it.tracceMusicali.isNotEmpty()) "Musica caricata" else "Nessuna traccia caricata"
+
+                    // ---> NUOVO: RECUPERO E MOSTRA EMAIL <---
+                    val emailSalvata = documento.getString("email") ?: ""
+                    if (emailSalvata.isNotEmpty()) {
+                        binding.tvEmailAtletaDettaglio.text = "Email di accesso: $emailSalvata"
+                    } else {
+                        binding.tvEmailAtletaDettaglio.text = "Email di accesso: Non inserita"
+                    }
+                    // ------------------------------------------
 
                     aggiornaIntestazione()
 

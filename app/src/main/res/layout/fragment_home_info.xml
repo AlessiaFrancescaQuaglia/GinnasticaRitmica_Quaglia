@@ -6,7 +6,7 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:fillViewport="true"
-        android:background="?android:attr/colorBackground">
+        android:background="@color/sfondo_app">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -21,7 +21,7 @@
                 android:layout_height="120dp"
                 android:layout_marginTop="24dp"
                 android:src="@android:drawable/btn_star_big_on"
-                app:tint="#6200EA" />
+                app:tint="@color/viola_torre" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -29,7 +29,7 @@
                 android:text="ASD GINNASTICA RITMICA"
                 android:textSize="26sp"
                 android:textStyle="bold"
-                android:textColor="#6200EA"
+                android:textColor="@color/viola_torre"
                 android:layout_marginTop="16dp"
                 android:textAlignment="center"/>
 
@@ -38,54 +38,46 @@
                 android:layout_height="wrap_content"
                 android:text="Passione, Eleganza e Movimento"
                 android:textSize="16sp"
-                android:textColor="#888888"
+                android:textColor="@color/testo_chiaro"
                 android:layout_marginBottom="32dp"
                 android:textStyle="italic"/>
 
-            <androidx.cardview.widget.CardView
+            <!-- Sostituita CardView scura con il Riquadro Grigio in stile Dashboard -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="40dp"
-                app:cardCornerRadius="12dp"
-                app:cardBackgroundColor="#2A2A2A"
-                app:cardElevation="4dp">
+                android:orientation="vertical"
+                android:background="@color/grigio_box"
+                android:padding="24dp"
+                android:layout_marginBottom="40dp">
 
-                <LinearLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="I Nostri Corsi"
+                    android:textColor="@color/testo_titoli"
+                    android:textStyle="bold"
+                    android:textSize="18sp"
+                    android:layout_marginBottom="12dp"/>
+
+                <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="I Nostri Corsi"
-                        android:textColor="#03DAC5"
-                        android:textStyle="bold"
-                        android:textSize="18sp"
-                        android:layout_marginBottom="8dp"/>
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="Benvenuti nella nostra piattaforma ufficiale. La nostra associazione offre corsi di Ginnastica Ritmica per tutte le eta, partendo dai corsi base (piccoli e grandi) fino ai settori agonistici e promozionali.\n\nSeleziona la tua area di riferimento qui sotto per accedere ai servizi digitali della societa."
-                        android:textColor="#FFFFFF"
-                        android:textSize="15sp"
-                        android:lineSpacingExtra="4dp"/>
-                </LinearLayout>
-            </androidx.cardview.widget.CardView>
+                    android:text="Benvenuti nella nostra piattaforma ufficiale. La nostra associazione offre corsi di Ginnastica Ritmica per tutte le età, partendo dai corsi base (piccoli e grandi) fino ai settori agonistici e promozionali.\n\nSeleziona la tua area di riferimento qui sotto per accedere ai servizi digitali della società."
+                    android:textColor="@color/testo_sottotitoli"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="4dp"/>
+            </LinearLayout>
 
             <Button
                 android:id="@+id/btnAccedi"
                 android:layout_width="match_parent"
                 android:layout_height="60dp"
                 android:text="Accedi come atleta o allenatrice"
-                android:backgroundTint="#6200EA"
-                android:textColor="#FFFFFF"
+                android:backgroundTint="@color/viola_torre"
+                android:textColor="@android:color/white"
                 android:textStyle="bold"
                 android:layout_marginBottom="16dp"/>
-
-
 
         </LinearLayout>
     </ScrollView>

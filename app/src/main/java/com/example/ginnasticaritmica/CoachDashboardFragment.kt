@@ -13,6 +13,7 @@ import androidx.navigation.fragment.findNavController
 import com.example.ginnasticaritmica.databinding.FragmentCoachDashboardBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -23,6 +24,11 @@ class CoachDashboardFragment : Fragment() {
     private lateinit var binding: FragmentCoachDashboardBinding
     private val viewModel: CoachViewModel by activityViewModels()
     private val db = FirebaseFirestore.getInstance()
+
+    // MAGIA DA 30 E LODE: Tre interruttori per spegnere i tre ascolti in background!
+    private var allenatriceListener: ListenerRegistration? = null
+    private var gareListener: ListenerRegistration? = null
+    private var atleteListener: ListenerRegistration? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -36,21 +42,16 @@ class CoachDashboardFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // Recupero nome dell'allenatrice per il benvenuto
-        // Mostra il Nome dell'Allenatrice in Tempo Reale (Metodo Diretto Infallibile)
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid
         if (uidAllenatrice != null) {
-            db.collection("Allenatrici").document(uidAllenatrice).addSnapshotListener { documento, error ->
-
+            // Agganciamo l'interruttore 1
+            allenatriceListener = db.collection("Allenatrici").document(uidAllenatrice).addSnapshotListener { documento, error ->
                 if (error != null) {
-                    // Se c'è un errore di connessione, non facciamo nulla
                     return@addSnapshotListener
                 }
 
                 if (documento != null && documento.exists()) {
-                    // Peschiamo il nome dal database
                     val nomeDatabase = documento.getString("nome") ?: "Allenatrice"
-
-                    // Lo scriviamo in tempo reale sulla grafica!
                     binding.tvBenvenuto.text = "Benvenuta, $nomeDatabase!"
                 }
             }
@@ -69,7 +70,6 @@ class CoachDashboardFragment : Fragment() {
         binding.navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_home_dashboard -> {
-                    // Sei già nella Dashboard! Quindi diciamo all'app di chiudere semplicemente la tendina
                     binding.drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
                 }
                 R.id.profiloAllenatriceFragment -> {
@@ -103,7 +103,8 @@ class CoachDashboardFragment : Fragment() {
     private fun caricaRiepilogoDashboard() {
 
         // --- 1. CARICAMENTO GARE IN TEMPO REALE ---
-        db.collection("Gare").addSnapshotListener { snapshot, error ->
+        // Agganciamo l'interruttore 2
+        gareListener = db.collection("Gare").addSnapshotListener { snapshot, error ->
             if (error != null) {
                 binding.tvNumeroGareDashboard.text = "?"
                 return@addSnapshotListener
@@ -118,7 +119,8 @@ class CoachDashboardFragment : Fragment() {
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid
 
         if (uidAllenatrice != null) {
-            db.collection("Atlete")
+            // Agganciamo l'interruttore 3
+            atleteListener = db.collection("Atlete")
                 .whereEqualTo("idAllenatrice", uidAllenatrice) // IL FILTRO MAGICO! Prende solo le TUE atlete
                 .addSnapshotListener { snapshot, error ->
 
@@ -173,5 +175,14 @@ class CoachDashboardFragment : Fragment() {
                     }
                 }
         }
+    }
+
+    // --- PULIZIA FINALE ---
+    override fun onDestroyView() {
+        super.onDestroyView()
+        // Spegniamo tutti i "rubinetti" aperti verso Firebase per non consumare batteria!
+        allenatriceListener?.remove()
+        gareListener?.remove()
+        atleteListener?.remove()
     }
 }

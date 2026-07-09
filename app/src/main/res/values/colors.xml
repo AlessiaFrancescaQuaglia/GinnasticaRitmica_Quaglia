@@ -1,5 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
+    <color name="viola_torre">#6200EA</color>
+    <color name="sfondo_app">#FFFFFF</color>
+    <color name="grigio_box">#F5F5F5</color>
+
+    <color name="testo_titoli">#000000</color>
+    <color name="testo_sottotitoli">#333333</color>
+    <color name="testo_chiaro">#888888</color>
+
+    <color name="verde_ok">#4CAF50</color>
+    <color name="rosso_alert">#CF6679</color>
+    <color name="verde_acqua_bottoni">#03DAC5</color>
 </resources>

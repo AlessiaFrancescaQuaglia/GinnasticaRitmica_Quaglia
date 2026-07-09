@@ -6,7 +6,7 @@
     android:padding="16dp"
     android:gravity="center_vertical"
     android:layout_marginBottom="8dp"
-    android:background="#2A2A2A">
+    android:background="@color/grigio_box">
 
     <TextView
         android:id="@+id/tvNomeAtletaAppello"
@@ -16,7 +16,7 @@
         android:text="Nome Atleta"
         android:textSize="18sp"
         android:textStyle="bold"
-        android:textColor="#FFFFFF"/>
+        android:textColor="@color/testo_titoli"/>
 
     <RadioGroup
         android:id="@+id/radioGroupPresenza"
@@ -29,16 +29,16 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Presente"
-            android:textColor="#03DAC5"
-            android:buttonTint="#03DAC5"/>
+            android:textColor="@color/verde_acqua_bottoni"
+            android:buttonTint="@color/verde_acqua_bottoni"/>
 
         <RadioButton
             android:id="@+id/rbAssente"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Assente"
-            android:textColor="#CF6679"
-            android:buttonTint="#CF6679"
+            android:textColor="@color/rosso_alert"
+            android:buttonTint="@color/rosso_alert"
             android:layout_marginStart="8dp"/>
     </RadioGroup>
 

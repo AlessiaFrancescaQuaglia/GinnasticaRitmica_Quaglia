@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools">
 
     <LinearLayout
@@ -8,23 +9,24 @@
         android:orientation="vertical"
         android:gravity="center"
         android:padding="32dp"
-        android:background="?android:attr/colorBackground"
+        android:background="@color/sfondo_app"
         tools:context=".LoginFragment">
 
+        <!-- TITOLO APP -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="RhythmicCore"
             android:textSize="36sp"
             android:textStyle="bold"
-            android:textColor="#BB86FC"
+            android:textColor="@color/viola_torre"
             android:layout_marginBottom="48dp" />
 
         <EditText
             android:id="@+id/emailInput"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:hint="Email "
+            android:hint="Email"
             android:inputType="textEmailAddress"
             android:layout_marginBottom="16dp"/>
 
@@ -42,9 +44,9 @@
             android:layout_height="60dp"
             android:text="Entra come allenatrice"
             android:textSize="18sp"
+            android:backgroundTint="@color/viola_torre"
+            android:textColor="@android:color/white"
             android:layout_marginBottom="16dp" />
-
-
 
         <Button
             android:id="@+id/btnAccediAtleta"
@@ -52,24 +54,39 @@
             android:layout_height="60dp"
             android:text="Entra come atleta"
             android:textSize="18sp"
+            android:backgroundTint="@color/viola_torre"
+            android:textColor="@android:color/white"
             android:layout_marginBottom="16dp" />
 
+        <!-- ACCESSO GOOGLE (ROSSO MANTENUTO) -->
         <Button
             android:id="@+id/btnGoogle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Accedi con Google"
+            android:textColor="@android:color/white"
             android:backgroundTint="#DB4437" />
 
+        <!-- TASTO REGISTRATI -->
         <Button
             android:id="@+id/btnRegistrati"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="60dp"
             android:text="Nuova Allenatrice? Registrati qui"
+            android:textColor="@color/viola_torre"
+            app:strokeColor="@color/viola_torre"
             android:layout_marginBottom="16dp" />
 
-
+        <Button
+            android:id="@+id/btnRegistratiAtleta"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:text="Sei un'Atleta? Registrati qui"
+            android:textColor="@color/verde_acqua_bottoni"
+            app:strokeColor="@color/verde_acqua_bottoni"
+            android:layout_marginBottom="16dp" />
 
     </LinearLayout>
 </layout>

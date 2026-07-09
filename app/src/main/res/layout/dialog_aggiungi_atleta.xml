@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
+    android:background="@color/sfondo_app"
     android:padding="24dp">
 
     <TextView
@@ -11,7 +13,7 @@
         android:text="Nuova Ginnasta"
         android:textSize="20sp"
         android:textStyle="bold"
-        android:textColor="#6200EA"
+        android:textColor="@color/viola_torre"
         android:layout_marginBottom="16dp"/>
 
     <EditText
@@ -19,6 +21,8 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:hint="Nome"
+        android:textColor="@color/testo_titoli"
+        android:textColorHint="@color/testo_chiaro"
         android:inputType="textPersonName"
         android:layout_marginBottom="8dp"/>
 
@@ -27,21 +31,35 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:hint="Cognome"
+        android:textColor="@color/testo_titoli"
+        android:textColorHint="@color/testo_chiaro"
         android:inputType="textPersonName"
         android:layout_marginBottom="16dp"/>
 
-    <!-- Bottone per scegliere la data (il DatePicker si aprirà al click) -->
+    <EditText
+        android:id="@+id/etEmailAtleta"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:hint="Email della Ginnasta (per il suo accesso)"
+        android:inputType="textEmailAddress"
+        android:textColor="@color/testo_titoli"
+        android:textColorHint="@color/testo_chiaro"
+        android:layout_marginBottom="16dp"/>
+
     <Button
         android:id="@+id/btnDataNascita"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Seleziona Data di Nascita *"
+        android:backgroundTint="@color/viola_torre"
+        android:textColor="@android:color/white"
         android:layout_marginBottom="16dp"/>
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Livello"
+        android:textColor="@color/testo_sottotitoli"
         android:textSize="14sp"
         android:layout_marginStart="4dp"/>
 
@@ -51,12 +69,13 @@
         android:layout_height="50dp"
         android:layout_marginBottom="16dp"/>
 
-    <!-- Bottone per certificato (opzionale) -->
     <Button
         android:id="@+id/btnDataCertificato"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Data Certificato (Opzionale)"
+        android:textColor="@color/viola_torre"
+        app:strokeColor="@color/viola_torre"
         style="?attr/materialButtonOutlinedStyle"/>
 
 </LinearLayout>
