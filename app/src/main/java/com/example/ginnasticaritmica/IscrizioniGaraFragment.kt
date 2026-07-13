@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -15,17 +16,20 @@ import com.example.ginnasticaritmica.databinding.FragmentIscrizioniGareBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import androidx.core.graphics.toColorInt
 
 class IscrizioniGaraFragment : Fragment() {
 
+    // ViewBinding: accesso sicuro agli elementi grafici
     private var _binding: FragmentIscrizioniGareBinding? = null
     private val binding get() = _binding!!
+
+    // Connessione al database Firestore
     private val db = FirebaseFirestore.getInstance()
 
+    // Variabili d'appoggio per memorizzare la gara aperta e la lista di atlete idonee
     private var garaCorrente: Gara? = null
     private val atleteCompatibili = mutableListOf<Atleta>()
-
-    // MAGIA DA 30 E LODE: Variabile per il memory leak
     private var garaListener: ListenerRegistration? = null
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -33,17 +37,24 @@ class IscrizioniGaraFragment : Fragment() {
         return binding.root
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Recuperiamo l'ID della gara dalla pagina precedente
         val garaId = arguments?.getString("garaId") ?: return
+
+        // Impostiamo la lista in verticale
         binding.rvAtleteIscrizioni.layoutManager = LinearLayoutManager(requireContext())
 
-        // Assegniamo l'ascoltatore alla nostra variabile
+        //Scarica e aggiorna i dati della gara in tempo reale
         garaListener = db.collection("Gare").document(garaId).addSnapshotListener { snapshot, _ ->
             if (snapshot != null && snapshot.exists()) {
+                // Trasforma il JSON in oggetto Kotlin
                 garaCorrente = snapshot.toObject(Gara::class.java)
                 binding.tvNomeGaraTitolo.text = "Iscrizioni: ${garaCorrente?.nome ?: "Gara"}"
+
+                // Ora che abbiamo i requisiti della gara, cerchiamo le atlete
                 caricaAtleteCompatibili()
             }
         }
@@ -51,30 +62,29 @@ class IscrizioniGaraFragment : Fragment() {
 
     private fun caricaAtleteCompatibili() {
         val gara = garaCorrente ?: return
-
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid ?: return
 
+        //Scarica solo le atlete di questa allenatrice
         db.collection("Atlete")
             .whereEqualTo("idAllenatrice", uidAllenatrice)
             .get()
             .addOnSuccessListener { result ->
-                atleteCompatibili.clear()
+                atleteCompatibili.clear() // Svuota la lista per evitare duplicati
+
                 for (doc in result) {
                     val atleta = doc.toObject(Atleta::class.java)
 
-                    val livelliGara = gara.livelliAmmessi ?: emptyList()
-                    val catGara = gara.categorieAmmesse ?: emptyList()
-                    val livelloAtleta = atleta.livello ?: ""
-                    val catAtleta = atleta.categoria ?: ""
+                    //Controlla se l'atleta ha il livello e categoria richiesti
+                    val livelloOk = gara.livelliAmmessi.isEmpty() || gara.livelliAmmessi.contains(atleta.livello)
+                    val categoriaOk = gara.categorieAmmesse.isEmpty() || gara.categorieAmmesse.contains(atleta.categoria)
 
-                    val livelloOk = livelliGara.isEmpty() || livelliGara.contains(livelloAtleta)
-                    val categoriaOk = catGara.isEmpty() || catGara.contains(catAtleta)
-
+                    // Se i requisiti combaciano, aggiunge l'atleta alla lista visibile
                     if (livelloOk && categoriaOk) {
-                        atleta.id = doc.id
+                        atleta.id = doc.id // Assegna l'ID del documento all'oggetto
                         atleteCompatibili.add(atleta)
                     }
                 }
+                // Collega i dati trovati alla grafica tramite l'Adapter
                 binding.rvAtleteIscrizioni.adapter = IscrizioniAdapter()
             }
     }
@@ -82,51 +92,62 @@ class IscrizioniGaraFragment : Fragment() {
     private fun mostraDialogAttrezzi(atleta: Atleta) {
         val gara = garaCorrente ?: return
 
-        val attrezziGara = gara.attrezziAmmessi ?: emptyList()
-        val attrezziAtleta = atleta.attrezziUsati ?: emptyList()
-        val atleteIscritte = gara.atleteIscritte ?: mutableMapOf()
-
-        val attrezziPossibili = if (attrezziGara.isNotEmpty()) {
-            attrezziGara.intersect(attrezziAtleta.toSet()).toTypedArray()
+        // Trova solo gli attrezzi in comune tra gara e atleta
+        val attrezziPossibili = if (gara.attrezziAmmessi.isNotEmpty()) {
+            gara.attrezziAmmessi.intersect(atleta.attrezziUsati.toSet()).toTypedArray()
         } else {
-            attrezziAtleta.toTypedArray()
+            atleta.attrezziUsati.toTypedArray() // Se la gara non ha limiti, valgono tutti i suoi attrezzi
         }
 
+        // se non ci sono attrezzi in comune, ferma l'iscrizione
         if (attrezziPossibili.isEmpty()) {
             Toast.makeText(requireContext(), "L'atleta non usa attrezzi ammessi in questa gara!", Toast.LENGTH_LONG).show()
             return
         }
 
         val attrezziSelezionati = mutableListOf<String>()
-        val giaIscritti = atleteIscritte[atleta.id] ?: emptyList()
+        // Controlla se l'atleta era già iscritta a questa gara in precedenza
+        val giaIscritti = gara.atleteIscritte[atleta.id] ?: emptyList()
 
+        // Array di booleani (true/false) per spuntare in automatico gli attrezzi già scelti
         val checkedItems = BooleanArray(attrezziPossibili.size) { i ->
             val presente = giaIscritti.contains(attrezziPossibili[i])
             if (presente) attrezziSelezionati.add(attrezziPossibili[i])
             presente
         }
 
+        // Creazione del popup visivo
         AlertDialog.Builder(requireContext())
             .setTitle("Iscrivi ${atleta.nome} con:")
             .setMultiChoiceItems(attrezziPossibili, checkedItems) { _, which, isChecked ->
                 val attrezzo = attrezziPossibili[which]
+                // Aggiorna la lista temporanea in base alle spunte dell'utente
                 if (isChecked) attrezziSelezionati.add(attrezzo) else attrezziSelezionati.remove(attrezzo)
             }
             .setPositiveButton("Salva") { _, _ ->
-                val nuovaMappa = atleteIscritte.toMutableMap()
+
+                //Creiamo una mappa modificabile per non corrompere i dati originali
+                val nuovaMappa = gara.atleteIscritte.toMutableMap()
+
+                // Se ha tolto tutte le spunte, la disiscriviamo (rimuovendo il suo ID)
                 if (attrezziSelezionati.isEmpty()) {
                     nuovaMappa.remove(atleta.id)
                 } else {
+                    // Altrimenti salviamo i nuovi attrezzi scelti
                     nuovaMappa[atleta.id] = attrezziSelezionati
                 }
 
+                // Scriviamo l'aggiornamento parziale (solo atleteIscritte) su Firestore
                 db.collection("Gare").document(gara.id).update("atleteIscritte", nuovaMappa)
                     .addOnSuccessListener { Toast.makeText(requireContext(), "Iscrizione salvata!", Toast.LENGTH_SHORT).show() }
             }
             .setNegativeButton("Annulla", null).show()
     }
 
+    // INNER CLASS ADAPTER: "inner" le permette di leggere le variabili del Fragment esterno
     inner class IscrizioniAdapter : RecyclerView.Adapter<IscrizioniAdapter.ViewHolder>() {
+
+        // memorizza le view per evitare continui findViewById pesanti per la RAM
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvNome: TextView = view.findViewById(R.id.tvNomeAtletaIscrizione)
             val tvDettagli: TextView = view.findViewById(R.id.tvDettagliAtletaIscrizione)
@@ -139,18 +160,22 @@ class IscrizioniGaraFragment : Fragment() {
             return ViewHolder(view)
         }
 
+        @SuppressLint("SetTextI18n")
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val atleta = atleteCompatibili[position]
             val gara = garaCorrente ?: return
-            val atleteIscritte = gara.atleteIscritte ?: mutableMapOf()
 
-            holder.tvNome.text = atleta.nome ?: "Sconosciuta"
-            holder.tvDettagli.text = "${atleta.livello ?: "?"} - ${atleta.categoria ?: "?"}"
+            // Riempimento testi base
+            holder.tvNome.text = atleta.nome
+            holder.tvDettagli.text = "${atleta.livello} - ${atleta.categoria}"
 
-            val attrezziIscritti = atleteIscritte[atleta.id]
-            if (attrezziIscritti != null && attrezziIscritti.isNotEmpty()) {
+            // Controlliamo la mappa delle iscrizioni tramite l'ID dell'atleta
+            val attrezziIscritti = gara.atleteIscritte[atleta.id]
+
+            // se la lista attrezzi dell'atleta NON è vuota, è iscritta
+            if (!attrezziIscritti.isNullOrEmpty()) {
                 holder.tvStato.text = "Iscritta: ${attrezziIscritti.joinToString()}"
-                holder.tvStato.setTextColor(android.graphics.Color.parseColor("#008577"))
+                holder.tvStato.setTextColor("#008577".toColorInt())
                 holder.btnIscrivi.text = "Modifica"
             } else {
                 holder.tvStato.text = "Non iscritta"
@@ -158,6 +183,7 @@ class IscrizioniGaraFragment : Fragment() {
                 holder.btnIscrivi.text = "Iscrivi"
             }
 
+            // Click sul bottone per aprire il popup degli attrezzi
             holder.btnIscrivi.setOnClickListener { mostraDialogAttrezzi(atleta) }
         }
 
@@ -166,10 +192,8 @@ class IscrizioniGaraFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-
-        // Spegniamo l'ascolto quando usciamo dalla pagina!
+        // Spegniamo il listener di Firestore e scolleghiamo la grafica
         garaListener?.remove()
-
         _binding = null
     }
 }

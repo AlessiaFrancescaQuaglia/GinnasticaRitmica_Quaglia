@@ -1,3 +1,5 @@
+//GIA PRESENTE PER FUTURA ESTENSIONE DELL'APP IN VISTA DELLA TESI
+
 package com.example.ginnasticaritmica
 
 import android.os.Bundle

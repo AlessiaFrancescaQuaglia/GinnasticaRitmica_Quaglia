@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.os.Bundle
@@ -44,17 +45,18 @@ class GestioneAtleteFragment : Fragment() {
         binding.btnTornaIndietro.setOnClickListener { findNavController().navigateUp() }
         binding.fabAggiungiAtleta.setOnClickListener { mostraPopupAggiunta() }
 
-        // MAGIA MVVM: Osserviamo la lista dal ViewModel. Se cambia nel DB, la lista si aggiorna da sola!
+        //Se cambia la lista di atleti nel DB, la lista si aggiorna da sola
         viewModel.atleteList.observe(viewLifecycleOwner) { listaAggiornata ->
             adapter.updateData(listaAggiornata)
         }
 
-        // MAGIA MVVM: Osserviamo i messaggi. Se il ViewModel vuole dire qualcosa, il Fragment mostra il Toast!
+        // Se il ViewModel vuole mandare un messaggio, il Fragment mostra il Toast
         viewModel.toastMessage.observe(viewLifecycleOwner) { messaggio ->
             Toast.makeText(requireContext(), messaggio, Toast.LENGTH_SHORT).show()
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun mostraPopupAggiunta() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_aggiungi_atleta, null)
 
@@ -74,7 +76,6 @@ class GestioneAtleteFragment : Fragment() {
         var dataCertScelta = ""
 
         btnDataNascita.setOnClickListener {
-            val cal = Calendar.getInstance()
             DatePickerDialog(requireContext(), { _, y, m, d ->
                 dataNascitaScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", y, m + 1, d)
                 btnDataNascita.text = "Nata il: $dataNascitaScelta"
@@ -101,7 +102,7 @@ class GestioneAtleteFragment : Fragment() {
                 val emailAtleta = etEmailAtleta.text.toString().trim().lowercase()
 
                 if (nome.isNotEmpty() && cognome.isNotEmpty() && dataNascitaScelta.isNotEmpty()) {
-                    // Passiamo anche l'emailAtleta come sesto parametro al ViewModel!
+                    // Passiamo anche l'emailAtleta come sesto parametro al ViewModel
                     viewModel.aggiungiAtleta(nome, cognome, livello, dataNascitaScelta, dataCertScelta, emailAtleta)
                 } else {
                     Toast.makeText(requireContext(), "Nome, Cognome e Data Nascita sono obbligatori!", Toast.LENGTH_LONG).show()
@@ -111,7 +112,7 @@ class GestioneAtleteFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // Non serve più spegnere il Listener qui, lo fa in automatico il ViewModel in onCleared()!
+        // Non serve più spegnere il Listener qui, lo fa in automatico il ViewModel in onCleared()
         _binding = null
     }
 }

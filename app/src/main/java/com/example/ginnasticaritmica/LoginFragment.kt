@@ -14,6 +14,7 @@ import com.firebase.ui.auth.data.model.FirebaseAuthUIAuthenticationResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
+//GATEWAY DI SICUREZZA: Smista l'accesso in base alla gestione dei Ruoli (Allenatrice/Atleta)
 class LoginFragment : Fragment() {
 
     private var _binding: FragmentLoginBinding? = null
@@ -22,7 +23,7 @@ class LoginFragment : Fragment() {
     private lateinit var auth: FirebaseAuth
     private lateinit var db: FirebaseFirestore
 
-    // Il ricevitore per l'accesso con Google
+    //FIREBASE UI LAUNCHER: Gestisce il flusso asincrono del login con Google e gestisce i risultati
     private val signInLauncher = registerForActivityResult(
         FirebaseAuthUIActivityResultContract()
     ) { res ->
@@ -43,8 +44,9 @@ class LoginFragment : Fragment() {
         auth = FirebaseAuth.getInstance()
         db = FirebaseFirestore.getInstance()
 
-        // 1. TASTO: ACCEDI COME ALLENATRICE (Manuale con controllo Ruolo)
+        //TASTO: ACCEDI COME ALLENATRICE
         binding.btnAccediCoach.setOnClickListener {
+            // Rimuove gli spazi vuoti accidentali inseriti dall'utente
             val email = binding.emailInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
 
@@ -57,14 +59,15 @@ class LoginFragment : Fragment() {
                 .addOnSuccessListener {
                     val userId = auth.currentUser?.uid ?: ""
 
-                    // CONTROLLO DI SICUREZZA: Verifichiamo se è davvero un'allenatrice
+                    //Controllo di Sicurezza lato Client: Verifichiamo se l'utente autenticato ha davvero il permesso di entrare qui
                     db.collection("Utenti").document(userId).get()
                         .addOnSuccessListener { doc ->
                             val ruolo = doc.getString("ruolo") ?: "Allenatrice"
                             if (ruolo == "Allenatrice") {
                                 findNavController().navigate(R.id.action_loginFragment_to_coachDashboardFragment)
                             } else {
-                                auth.signOut() // Lo buttiamo fuori se ha sbagliato tasto!
+                                // SICUREZZA DIFENSIVA: Se ha sbagliato tasto, revochiamo il token e lo disconnettiamo
+                                auth.signOut()
                                 Toast.makeText(requireContext(), "Errore: Questo account è registrato come Atleta!", Toast.LENGTH_LONG).show()
                             }
                         }
@@ -74,7 +77,7 @@ class LoginFragment : Fragment() {
                 }
         }
 
-        // 2. TASTO: ACCEDI COME ATLETA (Manuale con controllo Ruolo)
+        // TASTO: ACCEDI COME ATLETA
         binding.btnAccediAtleta.setOnClickListener {
             val email = binding.emailInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
@@ -88,7 +91,7 @@ class LoginFragment : Fragment() {
                 .addOnSuccessListener {
                     val userId = auth.currentUser?.uid ?: ""
 
-                    // CONTROLLO DI SICUREZZA: Verifichiamo se è davvero un'atleta
+                    //Verifichiamo se è davvero un'atleta
                     db.collection("Utenti").document(userId).get()
                         .addOnSuccessListener { doc ->
                             val ruolo = doc.getString("ruolo") ?: "Atleta"
@@ -105,7 +108,7 @@ class LoginFragment : Fragment() {
                 }
         }
 
-        // 3. TASTO: REGISTRATI COME ALLENATRICE
+        // TASTO: REGISTRATI COME ALLENATRICE
         binding.btnRegistrati.setOnClickListener {
             val email = binding.emailInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
@@ -118,6 +121,8 @@ class LoginFragment : Fragment() {
             auth.createUserWithEmailAndPassword(email, password)
                 .addOnSuccessListener {
                     val userId = auth.currentUser?.uid ?: ""
+
+                    // Inseriamo il ruolo nel database di Firestore associandolo all'UID generato da Firebase Authentication
                     val utente = hashMapOf(
                         "email" to email,
                         "ruolo" to "Allenatrice"
@@ -134,25 +139,25 @@ class LoginFragment : Fragment() {
                 }
         }
 
-        // 3. TASTO: REGISTRATI COME ATLETA
+        //TASTO: REGISTRATI COME ATLETA
         binding.btnRegistratiAtleta.setOnClickListener {
             val email = binding.emailInput.text.toString().trim()
             val password = binding.passwordInput.text.toString().trim()
 
-            // 1. Controllo campi vuoti
+            // Controllo campi vuoti
             if (email.isEmpty() || password.isEmpty()) {
                 Toast.makeText(requireContext(), "Inserisci Email e Password per registrarti", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            // 2. Creazione account su Firebase Auth
+            // Creazione account su Firebase Auth
             FirebaseAuth.getInstance().createUserWithEmailAndPassword(email, password)
                 .addOnCompleteListener { task ->
                     if (task.isSuccessful) {
                         val user = task.result?.user
                         if (user != null) {
 
-                            // 3. IL PUNTO CRUCIALE: Salviamo il ruolo "Atleta" nel Database
+                            //Salviamo il ruolo "Atleta" nel Database
                             val mappaUtente = hashMapOf(
                                 "email" to email,
                                 "ruolo" to "Atleta"
@@ -172,7 +177,7 @@ class LoginFragment : Fragment() {
                 }
         }
 
-        // 4. TASTO: ACCEDI CON GOOGLE (Rileva il ruolo in automatico dal database)
+        //TASTO: ACCEDI CON GOOGLE
         binding.btnGoogle.setOnClickListener {
             val providers = arrayListOf(AuthUI.IdpConfig.GoogleBuilder().build())
             val signInIntent = AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build()
@@ -180,15 +185,17 @@ class LoginFragment : Fragment() {
         }
     }
 
-    // Risultato dell'accesso con Google (Mostrato a lezione dal prof!)
+    // Risultato dell'accesso con Google
     private fun onSignInResult(result: FirebaseAuthUIAuthenticationResult) {
         if (result.resultCode == android.app.Activity.RESULT_OK) {
             val user = FirebaseAuth.getInstance().currentUser
             if (user != null) {
+
+                //Controlla se l'utente esiste già
                 db.collection("Utenti").document(user.uid).get()
                     .addOnSuccessListener { document ->
                         if (!document.exists()) {
-                            // Nuovo utente Google: lo salviamo come Allenatrice di default
+                            // First Login: lo salviamo come Allenatrice di default (Registrazione implicita)
                             val utente = hashMapOf(
                                 "email" to user.email,
                                 "ruolo" to "Allenatrice",
@@ -197,7 +204,7 @@ class LoginFragment : Fragment() {
                             db.collection("Utenti").document(user.uid).set(utente)
                             findNavController().navigate(R.id.action_loginFragment_to_coachDashboardFragment)
                         } else {
-                            // Utente Google già esistente: l'app legge il ruolo e lo manda nel posto giusto!
+                            // Login Successivo: l'app legge il ruolo e fa "routing" dinamico
                             val ruolo = document.getString("ruolo") ?: "Allenatrice"
                             if (ruolo == "Allenatrice") {
                                 findNavController().navigate(R.id.action_loginFragment_to_coachDashboardFragment)
@@ -212,6 +219,7 @@ class LoginFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        // 6. MEMORY LEAK PREVENTION: Sgancia il binding grafico alla distruzione della View
         _binding = null
     }
 }

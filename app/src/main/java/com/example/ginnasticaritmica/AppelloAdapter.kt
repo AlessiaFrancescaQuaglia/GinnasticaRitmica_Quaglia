@@ -13,9 +13,11 @@ import java.util.Locale
 
 class AppelloAdapter(private var atlete: List<Atleta>) : RecyclerView.Adapter<AppelloAdapter.AppelloViewHolder>() {
 
+    // Salva i cambiamenti dell'allenatrice in un buffer temporaneo.finché non viene premuto "Salva" (o il tasto per inviare al DB), senza scrivere nel database a ogni singolo click.
     val statiPresenza = mutableMapOf<String, Boolean>()
 
     class AppelloViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        // ViewHolder:il pattern che evita di cercare ogni volta la vista nel layout
         val tvNome: TextView = view.findViewById(R.id.tvNomeAtletaAppello)
         val radioGroup: RadioGroup = view.findViewById(R.id.radioGroupPresenza)
         val rbPresente: RadioButton = view.findViewById(R.id.rbPresente)
@@ -23,6 +25,7 @@ class AppelloAdapter(private var atlete: List<Atleta>) : RecyclerView.Adapter<Ap
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppelloViewHolder {
+        // Inflate: trasforma il file XML in oggetto grafico (View)
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_presenza, parent, false)
         return AppelloViewHolder(view)
     }
@@ -31,11 +34,11 @@ class AppelloAdapter(private var atlete: List<Atleta>) : RecyclerView.Adapter<Ap
         val atleta = atlete[position]
         holder.tvNome.text = atleta.nome
 
+        //Poiché Android riutilizza le stesse righe per risparmiare memoria, devo assicurarmi che non ci siano ancora selezionate le opzioni di una riga vecchia.
         holder.radioGroup.setOnCheckedChangeListener(null)
         holder.radioGroup.clearCheck()
 
-        // CONTROLLO INTELLIGENTE: Se l'utente non ha ancora cliccato nulla in questa sessione,
-        // verifichiamo se l'atleta ha già la data di oggi salvata nel database
+        // Se non abbiamo ancora un click salvato nel buffer, guardiamo lo storico del database.
         val dataDiOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         if (!statiPresenza.containsKey(atleta.id)) {
             if (atleta.datePresenze.contains(dataDiOggi)) {
@@ -45,13 +48,14 @@ class AppelloAdapter(private var atlete: List<Atleta>) : RecyclerView.Adapter<Ap
             }
         }
 
-        // Accendiamo i pallini corretti in base ai dati storici o ai click correnti
+        // Visualizzazione: accendiamo il bottone in base allo stato nel buffer
         when (statiPresenza[atleta.id]) {
             true -> holder.rbPresente.isChecked = true
             false -> holder.rbAssente.isChecked = true
-            null -> {}
+            null -> {} // Nessuno stato salvato, lasciamo vuoto
         }
 
+        // Listener: ogni volta che l'allenatrice clicca, aggiorniamo il buffer temporaneo
         holder.radioGroup.setOnCheckedChangeListener { _, checkedId ->
             when (checkedId) {
                 R.id.rbPresente -> statiPresenza[atleta.id] = true
@@ -62,8 +66,9 @@ class AppelloAdapter(private var atlete: List<Atleta>) : RecyclerView.Adapter<Ap
 
     override fun getItemCount() = atlete.size
 
+    // Metodo per aggiornare la lista senza ricreare l'adapter
     fun updateData(nuoveAtlete: List<Atleta>) {
         atlete = nuoveAtlete
-        notifyDataSetChanged()
+        notifyDataSetChanged() // Dice alla lista di aggiornarsi perche i dati sono stati modificati
     }
 }

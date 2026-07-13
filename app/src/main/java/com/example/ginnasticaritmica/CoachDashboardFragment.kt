@@ -1,11 +1,10 @@
 package com.example.ginnasticaritmica
 
-import android.graphics.Color
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Toast
 import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -18,14 +17,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import androidx.core.graphics.toColorInt
 
 class CoachDashboardFragment : Fragment() {
 
     private lateinit var binding: FragmentCoachDashboardBinding
     private val viewModel: CoachViewModel by activityViewModels()
+    // 1.ActivityViewModels: Sfruttiamo il ViewModel dell'Activity madre. Così, se cambiamo schermata e torniamo qui,
+    // i dati statistici sono già pronti e non dobbiamo ricaricarli
     private val db = FirebaseFirestore.getInstance()
 
-    // MAGIA DA 30 E LODE: Tre interruttori per spegnere i tre ascolti in background!
+    // Dichiariamo 3 variabili ListenerRegistration.
+    // Ognuna serve a memorizzare un "tubo" aperto verso Firebase.
     private var allenatriceListener: ListenerRegistration? = null
     private var gareListener: ListenerRegistration? = null
     private var atleteListener: ListenerRegistration? = null
@@ -38,18 +41,16 @@ class CoachDashboardFragment : Fragment() {
         return binding.root
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
         // Recupero nome dell'allenatrice per il benvenuto
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid
         if (uidAllenatrice != null) {
-            // Agganciamo l'interruttore 1
-            allenatriceListener = db.collection("Allenatrici").document(uidAllenatrice).addSnapshotListener { documento, error ->
-                if (error != null) {
-                    return@addSnapshotListener
-                }
 
+            allenatriceListener = db.collection("Allenatrici").document(uidAllenatrice).addSnapshotListener { documento, error ->
+                if (error != null) return@addSnapshotListener
                 if (documento != null && documento.exists()) {
                     val nomeDatabase = documento.getString("nome") ?: "Allenatrice"
                     binding.tvBenvenuto.text = "Benvenuta, $nomeDatabase!"
@@ -57,7 +58,7 @@ class CoachDashboardFragment : Fragment() {
             }
         }
 
-        // Collegamento variabili al file grafico
+// Invece di impostare a mano i testi, agganciamo l'intero layout direttamente al ViewModel. Quando il ViewModel cambia, l'XML si aggiorna da solo!
         binding.viewModel = viewModel
         binding.lifecycleOwner = viewLifecycleOwner
 
@@ -70,7 +71,7 @@ class CoachDashboardFragment : Fragment() {
         binding.navView.setNavigationItemSelectedListener { menuItem ->
             when (menuItem.itemId) {
                 R.id.nav_home_dashboard -> {
-                    binding.drawerLayout.closeDrawer(androidx.core.view.GravityCompat.START)
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
                 }
                 R.id.profiloAllenatriceFragment -> {
                     findNavController().navigate(R.id.profiloAllenatriceFragment)
@@ -84,6 +85,7 @@ class CoachDashboardFragment : Fragment() {
                 R.id.presenzeFragment -> {
                     findNavController().navigate(R.id.presenzeFragment)
                 }
+                // Logout logico: torniamo alla pagina di Login "svuotando" lo stack
                 R.id.nav_logout -> {
                     findNavController().navigateUp()
                 }
@@ -96,14 +98,11 @@ class CoachDashboardFragment : Fragment() {
         caricaRiepilogoDashboard()
     }
 
-    /**
-     * Funzione unica e centralizzata per gestire il riepilogo della Dashboard.
-     * Si occupa di caricare il contatore delle Gare, le Atlete e le Scadenze.
-     */
+
+    @SuppressLint("SetTextI18n")
     private fun caricaRiepilogoDashboard() {
 
-        // --- 1. CARICAMENTO GARE IN TEMPO REALE ---
-        // Agganciamo l'interruttore 2
+        //CARICAMENTO GARE IN TEMPO REALE
         gareListener = db.collection("Gare").addSnapshotListener { snapshot, error ->
             if (error != null) {
                 binding.tvNumeroGareDashboard.text = "?"
@@ -115,13 +114,13 @@ class CoachDashboardFragment : Fragment() {
             }
         }
 
-        // --- 2. CARICAMENTO ATLETE E CALCOLO SCADENZE CERTIFICATI (IN TEMPO REALE) ---
+        //CARICAMENTO ATLETE E CALCOLO SCADENZE CERTIFICATI (IN TEMPO REALE)
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid
 
         if (uidAllenatrice != null) {
-            // Agganciamo l'interruttore 3
             atleteListener = db.collection("Atlete")
-                .whereEqualTo("idAllenatrice", uidAllenatrice) // IL FILTRO MAGICO! Prende solo le TUE atlete
+            //la query NON scarica tutte le atlete della palestra, ma solo quelle che sono state assegnate all'allenatrice corrente.
+                .whereEqualTo("idAllenatrice", uidAllenatrice)
                 .addSnapshotListener { snapshot, error ->
 
                     if (error != null || snapshot == null) {
@@ -137,7 +136,7 @@ class CoachDashboardFragment : Fragment() {
                     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                     val dataOggi = Date()
 
-                    // Ciclo per controllare ogni singola atleta trovata
+                    // Ciclo per controllare ogni singola atleta trovata e valutare le scadenze dei certificati
                     for (documento in snapshot.documents) {
                         val nome = documento.getString("nome") ?: "Sconosciuta"
                         val scadenza = documento.getString("scadenzaCertificato") ?: ""
@@ -151,36 +150,37 @@ class CoachDashboardFragment : Fragment() {
                                         TimeUnit.MILLISECONDS
                                     )
 
+                                    // Classificazione degli stati critici
                                     if (diffGiorni < 0) {
                                         atleteCritiche.add("🔴 $nome (SCADUTO il $scadenza)")
                                     } else if (diffGiorni in 0..30) {
                                         atleteCritiche.add("🟡 $nome (Scade tra $diffGiorni giorni)")
                                     }
                                 }
-                            } catch (e: Exception) {
-                                // Formato data errato, proseguiamo col prossimo documento
+                            } catch (_: Exception) {
                             }
                         } else {
                             atleteCritiche.add("🔴 $nome (Certificato Mancante)")
                         }
                     }
 
-                    // Stampa visiva degli avvisi sulle scadenze
+                    // Aggiornamento dinamico della UI con feedback a colori
                     if (atleteCritiche.isEmpty()) {
                         binding.tvAvvisiScadenze.text = "✅ Tutti i certificati sono in regola!"
-                        binding.tvAvvisiScadenze.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
+                        binding.tvAvvisiScadenze.setTextColor("#4CAF50".toColorInt())
                     } else {
                         binding.tvAvvisiScadenze.text = atleteCritiche.joinToString("\n\n")
-                        binding.tvAvvisiScadenze.setTextColor(android.graphics.Color.parseColor("#CF6679"))
+                        binding.tvAvvisiScadenze.setTextColor("#CF6679".toColorInt())
                     }
                 }
         }
     }
 
-    // --- PULIZIA FINALE ---
+    //PREVENZIONE DEI MEMORY LEAK
     override fun onDestroyView() {
         super.onDestroyView()
-        // Spegniamo tutti i "rubinetti" aperti verso Firebase per non consumare batteria!
+        // Quando il fragment muore, i 3 listener asincroni vanno spenti manualmente.
+        // Altrimenti, proverebbero ad aggiornare grafiche che non esistono più, causando un crash dell'app
         allenatriceListener?.remove()
         gareListener?.remove()
         atleteListener?.remove()

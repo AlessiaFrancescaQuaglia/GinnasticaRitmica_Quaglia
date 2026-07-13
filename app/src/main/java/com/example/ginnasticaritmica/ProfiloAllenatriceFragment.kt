@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -14,6 +15,8 @@ import com.example.ginnasticaritmica.databinding.FragmentProfiloAllenatriceBindi
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
 
 class ProfiloAllenatriceFragment : Fragment() {
 
@@ -24,16 +27,22 @@ class ProfiloAllenatriceFragment : Fragment() {
     private var pdfSelezionatoUri: Uri? = null
     private var uriTesseraSalvato: String? = null
 
+    //SCOPED STORAGE: Launcher per aprire in sicurezza i file
+    @SuppressLint("SetTextI18n")
     private val selettoreFile = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri != null) {
             pdfSelezionatoUri = uri
+
+            // Chiedo ad Android il permesso "permanente" di leggere questo file.
+            // Senza questo, se chiudo l'app e la riapro, l'URI salvato darebbe un errore di sicurezza
             requireContext().contentResolver.takePersistableUriPermission(
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
-            binding.tvStatoFile.text = "Nuovo PDF selezionato. Premi 'Salva'."
-            binding.tvStatoFile.setTextColor(android.graphics.Color.parseColor("#4CAF50"))
 
-            // Nascondiamo "Carica" e mostriamo "Cambia"
+            binding.tvStatoFile.text = "Nuovo PDF selezionato. Premi 'Salva'."
+            binding.tvStatoFile.setTextColor("#4CAF50".toColorInt())
+
+            // Gestione dinamica dei bottoni per la UX
             binding.btnCaricaTessera.visibility = View.GONE
             binding.btnCambiaTessera.visibility = View.VISIBLE
         }
@@ -51,24 +60,28 @@ class ProfiloAllenatriceFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         binding.btnTornaIndietro.setOnClickListener { findNavController().navigateUp() }
+
+        // Carico subito i dati esistenti da Firebase
         caricaDatiProfilo()
 
-        // Tasti per caricare/cambiare
+        // Assegnazione della stessa Lambda a due bottoni diversi per non duplicare codice
         val apriSelettore = { selettoreFile.launch(arrayOf("application/pdf")) }
         binding.btnCaricaTessera.setOnClickListener { apriSelettore() }
         binding.btnCambiaTessera.setOnClickListener { apriSelettore() }
 
-        // Tasto Visualizza
+        // DELEGAZIONE LETTURA PDF: Affido a un'app esterna l'apertura del documento
         binding.btnVisualizzaTessera.setOnClickListener {
-            // Se c'è un PDF nuovo selezionato apriamo quello, altrimenti quello vecchio
+            // Logica di fallback: do priorità al PDF appena scelto, sennò uso quello vecchio dal DB
             val uriDaAprire = pdfSelezionatoUri?.toString() ?: uriTesseraSalvato
             uriDaAprire?.let { uriString ->
                 try {
                     val intent = Intent(Intent.ACTION_VIEW)
-                    intent.setDataAndType(Uri.parse(uriString), "application/pdf")
+                    intent.setDataAndType(uriString.toUri(), "application/pdf")
+                    // Aggiungo il flag per autorizzare temporaneamente l'app terza a leggere il mio file
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     startActivity(intent)
-                } catch (e: Exception) {
+                } catch (_: Exception) {
+                    // 5. EXCEPTION HANDLING: Previene il crash se il telefono non ha lettori PDF installati
                     Toast.makeText(requireContext(), "Nessun lettore PDF installato sul dispositivo", Toast.LENGTH_LONG).show()
                 }
             }
@@ -77,6 +90,7 @@ class ProfiloAllenatriceFragment : Fragment() {
         binding.btnSalvaProfilo.setOnClickListener { salvaDatiProfilo() }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun caricaDatiProfilo() {
         val userId = auth.currentUser?.uid ?: return
 
@@ -88,6 +102,7 @@ class ProfiloAllenatriceFragment : Fragment() {
 
                 uriTesseraSalvato = documento.getString("uriTesseraPdf")
 
+                // Aggiornamento grafico se la tessera è già presente nel DB
                 if (!uriTesseraSalvato.isNullOrEmpty()) {
                     binding.btnCaricaTessera.visibility = View.GONE
                     binding.btnVisualizzaTessera.visibility = View.VISIBLE
@@ -115,11 +130,12 @@ class ProfiloAllenatriceFragment : Fragment() {
             "dataNascita" to dataNascita
         )
 
+        // Aggiungo l'URI del file al DB solo se l'utente ha effettivamente selezionato un nuovo PDF
         if (pdfSelezionatoUri != null) {
             datiAggiornati["uriTesseraPdf"] = pdfSelezionatoUri.toString()
         }
 
-        // ECCO LA MAGIA: SetOptions.merge() crea il documento se non c'è, o lo aggiorna se esiste!
+        // 6. UPSERT (Update/Insert): Scrittura intelligente su Firestore
         db.collection("Allenatrici").document(userId)
             .set(datiAggiornati, SetOptions.merge())
             .addOnSuccessListener {

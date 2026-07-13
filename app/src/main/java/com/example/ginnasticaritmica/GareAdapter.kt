@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -7,9 +8,10 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
+// Passo una funzione come parametro (onIscrizioniClick) per delegare il click al Fragment senza usare interfacce complesse.
 class GareAdapter(
     private val listaGare: List<Gara>,
-    private val onIscrizioniClick: (Gara) -> Unit // Azione quando si clicca "Gestisci Iscrizioni"
+    private val onIscrizioniClick: (Gara) -> Unit
 ) : RecyclerView.Adapter<GareAdapter.GaraViewHolder>() {
 
     class GaraViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -24,18 +26,20 @@ class GareAdapter(
         return GaraViewHolder(view)
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: GaraViewHolder, position: Int) {
         val gara = listaGare[position]
 
         holder.tvNome.text = gara.nome
         holder.tvDataLuogo.text = "📅 ${gara.data} - 📍 ${gara.luogo}"
 
-        // Uniamo le liste per fare un piccolo riassunto
+        // Uso 'joinToString()' per convertire rapidamente una lista in una stringa separata da virgole, evitando di scrivere cicli for manuali.
         val riassuntoLivelli = if(gara.livelliAmmessi.isNotEmpty()) gara.livelliAmmessi.joinToString() else "Tutti"
         val riassuntoCategorie = if(gara.categorieAmmesse.isNotEmpty()) gara.categorieAmmesse.joinToString() else "Tutte"
 
         holder.tvFiltri.text = "⭐ Livelli: $riassuntoLivelli\n👧 Categorie: $riassuntoCategorie"
 
+        //Eseguo la lambda passando l'oggetto Gara cliccato.
         holder.btnIscrizioni.setOnClickListener {
             onIscrizioniClick(gara)
         }

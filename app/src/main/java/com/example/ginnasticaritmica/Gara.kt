@@ -11,6 +11,6 @@ data class Gara(
     var categorieAmmesse: List<String> = emptyList(),
     var attrezziAmmessi: List<String> = emptyList(),
 
-    // Qui dentro salveremo "Chi" si iscrive e con "Quali" attrezzi
+    // Qui si salvano le iscrizioni alle gare e i relativi attrezzi
     var atleteIscritte: MutableMap<String, List<String>> = mutableMapOf()
 )

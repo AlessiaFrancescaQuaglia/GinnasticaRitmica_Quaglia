@@ -15,15 +15,15 @@ import java.util.concurrent.TimeUnit
 
 class ScadenzaWorker(context: Context, params: WorkerParameters) : Worker(context, params) {
 
-    // Questo è il metodo che il WorkManager esegue in background (Lezione 15)
+    // Questo è il metodo che il WorkManager esegue in background
     override fun doWork(): Result {
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid ?: return Result.success()
         val db = FirebaseFirestore.getInstance()
 
         try {
-            // MAGIA DA 30 E LODE: Usiamo Tasks.await()
+            // Uso Tasks.await()
             // Visto che siamo in Background, possiamo dire all'app di "fermarsi e aspettare"
-            // la risposta di Firebase senza far bloccare lo schermo all'utente!
+            // la risposta di Firebase senza far bloccare lo schermo all'utente
             val snapshot = Tasks.await(
                 db.collection("Atlete").whereEqualTo("idAllenatrice", uidAllenatrice).get()
             )
@@ -47,14 +47,14 @@ class ScadenzaWorker(context: Context, params: WorkerParameters) : Worker(contex
                 }
             }
 
-            // Se troviamo problemi, facciamo partire la notifica (Lezione 14)
+            // Se troviamo problemi, facciamo partire la notifica
             if (certificatiScaduti > 0) {
                 mostraNotifica(certificatiScaduti)
             }
 
             return Result.success()
 
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             return Result.failure()
         }
     }

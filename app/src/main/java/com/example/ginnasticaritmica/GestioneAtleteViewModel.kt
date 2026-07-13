@@ -13,10 +13,9 @@ class GestioneAtleteViewModel : ViewModel() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    // MAGIA MVVM: Il listener è gestito qui dentro!
     private var atleteListener: ListenerRegistration? = null
 
-    // LIVEDATA: Questi "tubi" inviano i dati aggiornati al Fragment in automatico
+    // LIVEDATA: Il Fragment osserva queste variabili per aggiornare questi dati
     private val _atleteList = MutableLiveData<List<Atleta>>()
     val atleteList: LiveData<List<Atleta>> get() = _atleteList
 
@@ -42,12 +41,12 @@ class GestioneAtleteViewModel : ViewModel() {
                         val atleta = documento.toObject(Atleta::class.java)
                         if (atleta != null) lista.add(atleta)
                     }
-                    _atleteList.value = lista // Aggiorniamo il tubo coi nuovi dati!
+                    _atleteList.value = lista // Aggiorniamo il LiveData con la nuova lista di atleti
                 }
             }
     }
 
-    // Sostituisci la vecchia funzione con questa (aggiunto il parametro emailAtleta)
+    //funzione per aggiungere un nuovo atleta
     fun aggiungiAtleta(nome: String, cognome: String, livello: String, dataNascita: String, dataCertificato: String, emailAtleta: String) {
         val idAllenatriceAttuale = auth.currentUser?.uid ?: return
 
@@ -62,10 +61,11 @@ class GestioneAtleteViewModel : ViewModel() {
             "dataNascita" to dataNascita,
             "scadenzaCertificato" to dataCertificato,
             "idAllenatrice" to idAllenatriceAttuale,
-            "email" to emailAtleta, // <-- SALVIAMO L'EMAIL QUI!
-            "linkMusica" to ""      // Campo vuoto pronto per essere aggiornato dall'allenatrice
+            "email" to emailAtleta,
+            "linkMusica" to ""
         )
 
+        // Aggiungiamo l'atleta al database
         db.collection("Atlete").document(idDocumento).set(nuovaAtleta)
             .addOnSuccessListener { _toastMessage.value = "Ginnasta iscritta con successo!" }
             .addOnFailureListener { e -> _toastMessage.value = "Errore: ${e.message}" }
@@ -77,11 +77,12 @@ class GestioneAtleteViewModel : ViewModel() {
         val annoCorrente = Calendar.getInstance().get(Calendar.YEAR)
         val eta = annoCorrente - annoNascita
         return when {
+            eta < 8 -> "Pre-agonismo"
             eta in 8..9 -> "Allieve 1"
             eta == 10 -> "Allieve 2"
             eta == 11 -> "Allieve 3"
             eta == 12 -> "Allieve 4"
-            eta == 13 -> "Allieve 5 – Prejunior"
+            eta == 13 -> "Allieve 5"
             eta == 14 -> "Junior 1"
             eta == 15 -> "Junior 2"
             eta == 16 -> "Senior 1"
@@ -90,7 +91,7 @@ class GestioneAtleteViewModel : ViewModel() {
         }
     }
 
-    // Quando il Fragment muore, il ViewModel pulisce il database da solo!
+    // Quando il Fragment muore, il ViewModel pulisce il database da solo
     override fun onCleared() {
         super.onCleared()
         atleteListener?.remove()

@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.os.Bundle
@@ -25,11 +26,10 @@ class ListaGareFragment : Fragment() {
     private val binding get() = _binding!!
     private val db = FirebaseFirestore.getInstance()
 
-    // --- NUOVO: Variabili per la lista ---
     private lateinit var adapter: GareAdapter
     private val listaGare = mutableListOf<Gara>()
 
-    // MAGIA DA 30 E LODE: Variabile per "spegnere" l'ascolto di Firebase quando usciamo dalla pagina
+    // Variabile per "spegnere" l'ascolto di Firebase quando usciamo dalla pagina
     private var garaListener: ListenerRegistration? = null
 
     override fun onCreateView(
@@ -43,33 +43,28 @@ class ListaGareFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // --- NUOVO: Configurazione RecyclerView ---
+        //Passo un blocco di codice (la navigazione) direttamente nell'Adapter
         adapter = GareAdapter(listaGare) { garaSelezionata ->
-            // Passa l'ID della gara alla nuova pagina e naviga!
             val bundle = Bundle()
             bundle.putString("garaId", garaSelezionata.id)
             androidx.navigation.fragment.NavHostFragment.findNavController(this)
                 .navigate(R.id.iscrizioniGaraFragment, bundle)
         }
+
         binding.rvListaGare.layoutManager = LinearLayoutManager(requireContext())
         binding.rvListaGare.adapter = adapter
 
-        // Scarica le gare in tempo reale da Firebase!
+        // Inizializza l'ascolto del database in tempo reale
         caricaGareDaFirebase()
 
-        // Bottone per aggiungere gara
-        binding.btnAggiungiGara.setOnClickListener {
-            mostraDialogCreaGara()
-        }
-        // Al click sulla freccia, torna indietro alla Dashboard!
-        binding.btnTornaIndietro.setOnClickListener {
-            findNavController().navigateUp()
-        }
+        binding.btnAggiungiGara.setOnClickListener { mostraDialogCreaGara() }
+        binding.btnTornaIndietro.setOnClickListener { findNavController().navigateUp() }
     }
 
-    // --- NUOVO: Funzione magica per scaricare in Tempo Reale ---
+    //REAL-TIME DATA BINDING (Firestore)
+    @SuppressLint("NotifyDataSetChanged")
     private fun caricaGareDaFirebase() {
-        // Salviamo il listener nella nostra variabile così possiamo fermarlo in seguito
+        // addSnapshotListener garantisce che l'elenco gare sia sempre sincronizzato senza fare pull-to-refresh
         garaListener = db.collection("Gare").addSnapshotListener { snapshot, error ->
             if (error != null) {
                 Toast.makeText(requireContext(), "Errore di caricamento", Toast.LENGTH_SHORT).show()
@@ -78,18 +73,23 @@ class ListaGareFragment : Fragment() {
             if (snapshot != null) {
                 listaGare.clear()
                 for (documento in snapshot.documents) {
+                    // Deserializzazione da Documento NoSQL a Oggetto Kotlin
                     val gara = documento.toObject(Gara::class.java)
                     if (gara != null) {
                         listaGare.add(gara)
                     }
                 }
-                adapter.notifyDataSetChanged() // Diciamo all'Adapter di ridisegnare la grafica
+                // Diciamo all'Adapter che i dati sono cambiati
+                adapter.notifyDataSetChanged()
             }
         }
     }
 
+    //UI GENERATOR: Costruzione dinamica dell'interfaccia di inserimento
     private fun mostraDialogCreaGara() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_crea_gara, null)
+
+        // Risoluzione delle view interne al layout del Dialog
         val etNome = dialogView.findViewById<EditText>(R.id.etNomeGara)
         val etLuogo = dialogView.findViewById<EditText>(R.id.etLuogoGara)
         val tvData = dialogView.findViewById<TextView>(R.id.tvDataGara)
@@ -97,6 +97,7 @@ class ListaGareFragment : Fragment() {
         val tvCategorie = dialogView.findViewById<TextView>(R.id.tvCategorieGara)
         val tvAttrezzi = dialogView.findViewById<TextView>(R.id.tvAttrezziGara)
 
+        // Variabili di stato temporanee per comporre il JSON finale
         var dataScelta = ""
         val livelliScelti = mutableListOf<String>()
         val categorieScelte = mutableListOf<String>()
@@ -110,9 +111,12 @@ class ListaGareFragment : Fragment() {
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
 
+        //MULTI-CHOICE DIALOG: Uso di array booleani per gestire selezioni multiple
         tvLivelli.setOnClickListener {
             val arrayLivelli = arrayOf("LA1", "LA2", "LB1", "LB2", "LC1", "LC2", "LD", "LE", "Gold")
+            // Array di stato (tutti false all'inizio)
             val checked = BooleanArray(arrayLivelli.size)
+
             AlertDialog.Builder(requireContext()).setTitle("Livelli Ammessi")
                 .setMultiChoiceItems(arrayLivelli, checked) { _, which, isChecked ->
                     val item = arrayLivelli[which]
@@ -122,6 +126,7 @@ class ListaGareFragment : Fragment() {
                 }.show()
         }
 
+        // (Stessa logica del Multi-Choice per Categorie e Attrezzi)
         tvCategorie.setOnClickListener {
             val arrayCat = arrayOf("Allieve 1", "Allieve 2", "Allieve 3", "Allieve 4", "Allieve 5 – Prejunior", "Junior 1", "Junior 2", "Senior 1", "Senior 2", "Senior 3")
             val checked = BooleanArray(arrayCat.size)
@@ -146,12 +151,17 @@ class ListaGareFragment : Fragment() {
                 }.show()
         }
 
+        // OBJECT CREATION & DATABASE COMMIT
         AlertDialog.Builder(requireContext())
             .setView(dialogView)
             .setPositiveButton("Crea Gara") { _, _ ->
                 val nome = etNome.text.toString()
+
                 if (nome.isNotEmpty() && dataScelta.isNotEmpty()) {
+
+                    //Crea un ID univoco universale, garantendo che due gare non possano mai sovrascriversi a vicenda sul server.
                     val idGara = UUID.randomUUID().toString()
+
                     val nuovaGara = Gara(
                         id = idGara,
                         nome = nome,
@@ -162,6 +172,7 @@ class ListaGareFragment : Fragment() {
                         attrezziAmmessi = attrezziScelti
                     )
 
+                    // Scrittura diretta indicando l'ID del documento
                     db.collection("Gare").document(idGara).set(nuovaGara)
                         .addOnSuccessListener {
                             Toast.makeText(requireContext(), "Gara creata con successo!", Toast.LENGTH_SHORT).show()
@@ -177,7 +188,7 @@ class ListaGareFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
 
-        // MAGIA DA 30 E LODE: Spegniamo Firebase per liberare la memoria!
+        //Spegniamo il listener di Firestore
         garaListener?.remove()
 
         _binding = null

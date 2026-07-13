@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.graphics.Bitmap
@@ -27,7 +28,10 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
 
+// 1. PANNELLO DI CONTROLLO ATLETA: Integra permessi, CRUD, grafici e Media Streaming.
 class DettaglioAtletaFragment : Fragment() {
 
     private var _binding: FragmentDettaglioAtletaBinding? = null
@@ -35,12 +39,13 @@ class DettaglioAtletaFragment : Fragment() {
 
     private val db = FirebaseFirestore.getInstance()
     private var atletaId: String? = null
-
     private var atletaCorrente: Atleta? = null
+
+    // Gestore del flusso audio in streaming
     private var mediaPlayer: MediaPlayer? = null
     private var tracceDisponibili: Map<String, String> = emptyMap()
 
-    // 1. Lanciatore per chiedere il permesso della fotocamera
+    //chiede il permesso della fotocamera
     private val requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             takePictureLauncher.launch(null)
@@ -49,7 +54,7 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    // 2. Lanciatore per scattare la foto
+    //launcher per scattare la foto
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
         if (bitmap != null) salvaFotoInBase64(bitmap)
         else Toast.makeText(requireContext(), "Azione annullata", Toast.LENGTH_SHORT).show()
@@ -63,24 +68,24 @@ class DettaglioAtletaFragment : Fragment() {
         return binding.root
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // Estrazione dati dal Bundle (ricarico dal DB usando l'ID)
         atletaId = arguments?.getString("atletaId")
-        binding.tvNomeDettaglio.text = arguments?.getString("atletaNome")
-        binding.btnTornaIndietro.setOnClickListener {
-            findNavController().navigateUp()
-        }
-
         atletaId?.let { scaricaProfiloAtleta(it) }
 
-        // --- GESTIONE BOTTONI PROFILO TECNICO ---
+        // Mappatura modifiche anagrafiche, tecniche e account
+        binding.tvNomeDettaglio.text = arguments?.getString("atletaNome")
+        //GESTIONE BOTTONI
+        binding.btnTornaIndietro.setOnClickListener { findNavController().navigateUp() }
         binding.btnModificaLivello.setOnClickListener { mostraDialogLivello() }
         binding.btnModificaNascita.setOnClickListener { mostraCalendarioNascita() }
         binding.btnModificaAttrezzi.setOnClickListener { mostraDialogAttrezzi() }
         binding.btnModificaGruppo.setOnClickListener { mostraDialogGruppo() }
-
-        // --- NUOVO: GESTIONE MODIFICA EMAIL ---
+        // 3. AGGIORNAMENTO MIRATO FIRESTORE: Usa '.update()' invece di '.set()' per sovrascrivere
+        // un singolo campo (email) senza alterare gli altri dati del documento.
         binding.btnModificaEmail.setOnClickListener {
             val inputEmail = EditText(requireContext())
             inputEmail.hint = "Inserisci l'email della ginnasta"
@@ -107,7 +112,6 @@ class DettaglioAtletaFragment : Fragment() {
 
         binding.btnEliminaAtleta.setOnClickListener { mostraConfermaEliminazione() }
 
-        // --- GESTIONE FOTOCAMERA ---
         binding.btnModificaFoto.setOnClickListener {
             if (androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                 takePictureLauncher.launch(null)
@@ -116,7 +120,6 @@ class DettaglioAtletaFragment : Fragment() {
             }
         }
 
-        // --- GESTIONE CERTIFICATO E MUSICA ---
         binding.btnAggiornaCertificato.setOnClickListener {
             val cal = Calendar.getInstance()
             DatePickerDialog(requireContext(), { _, year, month, day ->
@@ -161,34 +164,35 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-// --- AGGIORNAMENTO GRAFICA ---
+//GRAFICA
+    @SuppressLint("SetTextI18n")
     private fun scaricaProfiloAtleta(id: String) {
         db.collection("Atlete").document(id).get().addOnSuccessListener { documento ->
+
             if (documento != null && documento.exists()) {
                 val atleta = documento.toObject(Atleta::class.java)
                 atleta?.let {
                     atletaCorrente = it
                     tracceDisponibili = it.tracceMusicali
 
-                    binding.tvLivelloScelto.text = "Livello: ${if (it.livello.isNotEmpty()) it.livello else "Non inserito"}"
-                    binding.tvDataNascita.text = "Data di nascita: ${if (it.dataNascita.isNotEmpty()) it.dataNascita else "Non inserita"}"
+                    binding.tvLivelloScelto.text = "Livello: ${it.livello.ifEmpty { "Non inserito" }}"
+                    binding.tvDataNascita.text = "Data di nascita: ${it.dataNascita.ifEmpty { "Non inserita" }}"
                     binding.tvAttrezziUsati.text = "Attrezzi dell'anno: ${if (it.attrezziUsati.isNotEmpty()) it.attrezziUsati.joinToString(", ") else "Nessuno"}"
-                    binding.tvGruppoScelto.text = "Gruppo: ${if (it.gruppo.isNotEmpty()) it.gruppo else "Non assegnato"}"
-                    binding.tvScadenzaCertificato.text = if (it.scadenzaCertificato.isNotEmpty()) it.scadenzaCertificato else "Nessuna scadenza inserita"
+                    binding.tvGruppoScelto.text = "Gruppo: ${it.gruppo.ifEmpty { "Non assegnato" }}"
+                    binding.tvScadenzaCertificato.text = it.scadenzaCertificato.ifEmpty { "Nessuna scadenza inserita" }
                     binding.tvStatoMusica.text = if (it.tracceMusicali.isNotEmpty()) "Musica caricata" else "Nessuna traccia caricata"
 
-                    // ---> NUOVO: RECUPERO E MOSTRA EMAIL <---
+                    // RECUPERO E MOSTRA EMAIL
                     val emailSalvata = documento.getString("email") ?: ""
                     if (emailSalvata.isNotEmpty()) {
                         binding.tvEmailAtletaDettaglio.text = "Email di accesso: $emailSalvata"
                     } else {
                         binding.tvEmailAtletaDettaglio.text = "Email di accesso: Non inserita"
                     }
-                    // ------------------------------------------
 
                     aggiornaIntestazione()
 
-                    // Mostriamo il grafico usando la grandezza delle liste!
+                    // Mostriamo il grafico usando la grandezza delle liste
                     impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
 
                     if (it.fotoUrl.isNotEmpty()) {
@@ -208,13 +212,14 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
+    @SuppressLint("SetTextI18n")
     private fun aggiornaIntestazione() {
         val liv = atletaCorrente?.livello?.takeIf { it.isNotEmpty() } ?: "Livello ?"
         val cat = atletaCorrente?.categoria?.takeIf { it.isNotEmpty() } ?: "Categoria ?"
         binding.tvCategoriaDettaglio.text = "$liv • $cat"
     }
 
-    // --- FUNZIONE GRAFICO A TORTA (NUOVA) ---
+    // funzione per grafico torta presenze/assenze
     private fun impostaGrafico(presenze: Int, assenze: Int) {
         val chart = binding.pieChartPresenze
 
@@ -229,8 +234,8 @@ class DettaglioAtletaFragment : Fragment() {
 
         val dataSet = PieDataSet(entries, "")
         dataSet.colors = listOf(
-            Color.parseColor("#03DAC5"), // Verde acqua per Presenze
-            Color.parseColor("#CF6679")  // Rosso per Assenze
+            "#03DAC5".toColorInt(), // Verde acqua per Presenze
+            "#CF6679".toColorInt()  // Rosso per Assenze
         )
         dataSet.valueTextColor = Color.WHITE
         dataSet.valueTextSize = 14f
@@ -238,13 +243,13 @@ class DettaglioAtletaFragment : Fragment() {
         chart.data = PieData(dataSet)
         chart.description.isEnabled = false
         chart.legend.textColor = Color.WHITE
-        chart.setHoleColor(Color.parseColor("#2A2A2A")) // Colore sfondo card
+        chart.setHoleColor("#2A2A2A".toColorInt()) // Colore sfondo card
         chart.setTransparentCircleAlpha(0)
         chart.animateY(1000)
         chart.invalidate()
     }
 
-    // --- FUNZIONI FOTOCAMERA BASE64 ---
+    //funzione fotocamera
     private fun salvaFotoInBase64(bitmap: Bitmap) {
         Toast.makeText(requireContext(), "Elaborazione foto...", Toast.LENGTH_SHORT).show()
         val baos = ByteArrayOutputStream()
@@ -261,8 +266,10 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    // --- FUNZIONI PROFILO TECNICO ---
+    // funzione profilo tecnico
+    @SuppressLint("SetTextI18n")
     private fun mostraDialogLivello() {
+        //livelli delle atlete
         val livelli = arrayOf("LA1", "LA2", "LB1", "LB2", "LC1", "LC2", "LD", "LE", "Gold")
         AlertDialog.Builder(requireContext()).setTitle("Imposta Livello ")
             .setItems(livelli) { _, quale ->
@@ -274,6 +281,8 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
+    //funzione per calcolare la categoria in base all'età
+    @SuppressLint("SetTextI18n")
     private fun mostraCalendarioNascita() {
         val cal = Calendar.getInstance()
         val annoCorrente = cal.get(Calendar.YEAR)
@@ -298,6 +307,9 @@ class DettaglioAtletaFragment : Fragment() {
         }, cal.get(Calendar.YEAR) - 10, cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
+
+    //funzione per gli attrezzi dell'anno
+    @SuppressLint("SetTextI18n")
     private fun mostraDialogAttrezzi() {
         val tuttiGliAttrezzi = arrayOf("Corpo Libero", "Fune", "Cerchio", "Palla", "Clavette", "Nastro")
         val attrezziGiaScelti = BooleanArray(tuttiGliAttrezzi.size)
@@ -317,6 +329,8 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
+    //funzione per il gruppo di lavoro
+    @SuppressLint("SetTextI18n")
     private fun mostraDialogGruppo() {
         val gruppi = arrayOf("ago", "preago", "promo1", "promo2", "corsi grandi", "corsi piccoli")
         AlertDialog.Builder(requireContext()).setTitle("Assegna Gruppo")
@@ -327,6 +341,8 @@ class DettaglioAtletaFragment : Fragment() {
                 aggiornaDatoSuFirebase("gruppo", gruppoScelto)
             }.setNegativeButton("Annulla", null).show()
     }
+
+    //funzione per mostrare la finestra di conferma per eliminare un atleta
     private fun mostraConfermaEliminazione() {
         AlertDialog.Builder(requireContext()).setTitle("Eliminare Ginnasta?")
             .setMessage("Sei sicura di voler eliminare definitivamente questa atleta?")
@@ -334,10 +350,14 @@ class DettaglioAtletaFragment : Fragment() {
             .setNegativeButton("Annulla", null).show()
     }
 
+
+    //funzione per aggiornare i dati su Firebase
     private fun aggiornaDatoSuFirebase(campo: String, nuovoValore: Any) {
         atletaId?.let { id -> db.collection("Atlete").document(id).update(campo, nuovoValore) }
     }
 
+
+    //funzione per eliminare un atleta
     private fun eliminaAtleta() {
         atletaId?.let { id ->
             db.collection("Atlete").document(id).delete().addOnSuccessListener {
@@ -347,7 +367,7 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    // --- FUNZIONI CARICAMENTO DROPBOX ---
+    //funzione per scelta attrezzi nel caricamento musica
     private fun mostraDialogSceltaAttrezzoDropbox() {
         val attrezzi = arrayOf("Corpo Libero", "Fune", "Cerchio", "Palla", "Clavette", "Nastro")
         AlertDialog.Builder(requireContext()).setTitle("Scegli l'attrezzo")
@@ -355,6 +375,7 @@ class DettaglioAtletaFragment : Fragment() {
             .setNegativeButton("Annulla", null).show()
     }
 
+    //funzione per popup di inserimento link musica
     private fun mostraPopupInserimentoLink(attrezzo: String) {
         val inputLink = EditText(requireContext())
         inputLink.hint = "Incolla qui il link di Dropbox"
@@ -366,6 +387,9 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
+
+    //funzione che salva il link su Firebase
+    @SuppressLint("SetTextI18n")
     private fun salvaLinkDropboxSuFirestore(attrezzo: String, linkOriginale: String) {
         val id = atletaId ?: return
         val linkModificato = linkOriginale.replace("www.dropbox.com", "dl.dropboxusercontent.com").replace("?dl=0", "")
@@ -377,7 +401,7 @@ class DettaglioAtletaFragment : Fragment() {
             }
     }
 
-    // --- FUNZIONI LETTORE MUSICALE ---
+    //funzione per bottone di riproduzione musica
     private fun impostaBottoniRiproduzione() {
         binding.btnRiproduciMusica.setOnClickListener {
             if (tracceDisponibili.isEmpty()) return@setOnClickListener
@@ -390,13 +414,14 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnFermaMusica.setOnClickListener { fermaRiproduzione() }
     }
 
+    //funzione per avvio riproduzione
     private fun avviaRiproduzione(url: String) {
         fermaRiproduzione()
         Toast.makeText(requireContext(), "Caricamento traccia...", Toast.LENGTH_SHORT).show()
         try {
             mediaPlayer = MediaPlayer().apply {
                 setAudioAttributes(android.media.AudioAttributes.Builder().setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).setUsage(android.media.AudioAttributes.USAGE_MEDIA).build())
-                setDataSource(requireContext(), android.net.Uri.parse(url))
+                setDataSource(requireContext(), url.toUri())
                 setOnErrorListener { _, _, _ ->
                     Toast.makeText(requireContext(), "Errore di riproduzione.", Toast.LENGTH_LONG).show()
                     fermaRiproduzione()
@@ -410,9 +435,11 @@ class DettaglioAtletaFragment : Fragment() {
                 setOnCompletionListener { fermaRiproduzione() }
                 prepareAsync()
             }
-        } catch (e: Exception) {}
+        } catch (_: Exception) {}
     }
 
+
+    //funzione per fermare riproduzione
     private fun fermaRiproduzione() {
         mediaPlayer?.let { if (it.isPlaying) it.stop(); it.release() }
         mediaPlayer = null

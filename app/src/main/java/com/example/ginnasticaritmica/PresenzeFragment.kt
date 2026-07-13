@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
@@ -27,8 +28,9 @@ class PresenzeFragment : Fragment() {
     private val db = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     private lateinit var adapter: AppelloAdapter
-    private var listaAtlete = mutableListOf<Atleta>()
 
+    // Lista attualmente in uso (filtrata o meno) e Lista "Backup" per ripristinare i filtri
+    private var listaAtlete = mutableListOf<Atleta>()
     private val listaAtleteCompleta = mutableListOf<Atleta>()
 
     override fun onCreateView(
@@ -39,6 +41,7 @@ class PresenzeFragment : Fragment() {
         return binding.root
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -49,10 +52,12 @@ class PresenzeFragment : Fragment() {
 
         binding.tvDataOggi.text = "Data: $dataDiOggi"
 
+        // Inizializzazione Adapter
         adapter = AppelloAdapter(listaAtlete)
         binding.rvAppello.layoutManager = LinearLayoutManager(requireContext())
         binding.rvAppello.adapter = adapter
 
+        //SCARICAMENTO INIZIALE
         caricaAtleteAppello()
 
         // Tasto Salva Appello
@@ -74,17 +79,19 @@ class PresenzeFragment : Fragment() {
                     val atleta = doc.toObject(Atleta::class.java)
                     listaAtleteCompleta.add(atleta)
                 }
-                // All'inizio le mostriamo tutte
+                // All'inizio mostro tutte le atlete
                 listaAtlete = listaAtleteCompleta.toMutableList()
                 adapter.updateData(listaAtlete)
             }
     }
 
+
+    @SuppressLint("SetTextI18n")
     private fun salvaAppello() {
+        // Preleviamo il buffer temporaneo compilato dall'allenatrice
         val stati = adapter.statiPresenza
 
-        // NUOVO CONTROLLO: Se non hai segnato NESSUNA, si ferma.
-        // Ma se ne hai segnata anche solo 1, ti fa salvare!
+        //Se viene segnata anche solo 1 presnza/assenza, salva, altrimenti blococ
         if (stati.isEmpty()) {
             Toast.makeText(requireContext(), "Segna almeno una presenza o assenza prima di salvare!", Toast.LENGTH_SHORT).show()
             return
@@ -93,12 +100,14 @@ class PresenzeFragment : Fragment() {
         binding.btnSalvaAppello.isEnabled = false
         binding.btnSalvaAppello.text = "Salvataggio..."
 
+        // Iniziamo un "Batch": raggruppa le scritture per inviarle tutte insieme in una singola richiesta
         val batch = db.batch()
         val dataOggiIso = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
 
         for ((idAtleta, isPresente) in stati) {
             val docRef = db.collection("Atlete").document(idAtleta)
 
+            // ARRAY UNION e REMOVE ATOMICI: Garantisce la pulizia dei dati
             if (isPresente) {
                 batch.update(docRef, "datePresenze", FieldValue.arrayUnion(dataOggiIso))
                 batch.update(docRef, "dateAssenze", FieldValue.arrayRemove(dataOggiIso))
@@ -108,9 +117,8 @@ class PresenzeFragment : Fragment() {
             }
         }
 
+        // 'commit()' lancia l'operazione in blocco
         batch.commit().addOnSuccessListener {
-            // Nota: qui rimuoviamo la riga "caricaAtleteAppello()" altrimenti ricarica la lista
-            // e ci fa perdere i filtri che imposteremo. Lasciamo solo il Toast!
             Toast.makeText(requireContext(), "Appello parziale salvato!", Toast.LENGTH_SHORT).show()
             binding.btnSalvaAppello.isEnabled = true
             binding.btnSalvaAppello.text = "Salva Appello del Giorno"
@@ -121,7 +129,7 @@ class PresenzeFragment : Fragment() {
         }
     }
 
-    // --- LOGICA DI ESPORTAZIONE ---
+    // LOGICA DI ESPORTAZIONE
     private fun mostraDialogSceltaMese() {
         val mesi = arrayOf("Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre")
 
@@ -140,8 +148,9 @@ class PresenzeFragment : Fragment() {
         // Questo è il testo che cerchiamo all'inizio delle date (es: "2026-06-")
         val prefissoMese = String.format(Locale.getDefault(), "%04d-%02d-", annoCorrente, numeroMese)
 
-        // 1. FASE DI SCANSIONE: Troviamo solo i giorni in cui c'è stata lezione
-        val giorniAttivi = mutableSetOf<Int>() // Il Set evita di salvare due volte lo stesso giorno
+        // 4. DATA MINING (Ricerca giorni attivi)
+        // Usiamo un 'Set' invece di una List perché impedisce matematicamente di salvare duplicati
+        val giorniAttivi = mutableSetOf<Int>()
 
         for (atleta in listaAtlete) {
             // Uniamo le due liste per controllare tutto
@@ -149,7 +158,7 @@ class PresenzeFragment : Fragment() {
 
             for (data in tutteLeDate) {
                 if (data.startsWith(prefissoMese)) {
-                    // Estraiamo il numero del giorno (es: da "2026-06-15" prendiamo "15")
+                    // Estraiamo il numero del giorno
                     val giorno = data.substringAfterLast("-").toIntOrNull()
                     if (giorno != null) {
                         giorniAttivi.add(giorno)
@@ -158,25 +167,26 @@ class PresenzeFragment : Fragment() {
             }
         }
 
-        // Se non c'è stato nessun appello in quel mese, blocchiamo tutto!
+        // Se non c'è stato nessun appello in quel mese, blocco
         if (giorniAttivi.isEmpty()) {
             Toast.makeText(requireContext(), "Nessun appello registrato a $nomeMese!", Toast.LENGTH_LONG).show()
             return
         }
 
-        // Ordiniamo i giorni dal più piccolo al più grande (es: 2, 8, 15, 22)
+        // Sort per garantire l'ordine cronologico nell'Excel
         val giorniOrdinati = giorniAttivi.sorted()
 
+        //STRING BUILDER: Costruzione efficiente della stringa CSV (Comma Separated Values)
         val csvBuilder = StringBuilder()
 
-        // 2. CREAZIONE INTESTAZIONE (Solo per i giorni in cui c'è stata lezione!)
+        //CREAZIONE INTESTAZIONE (Solo per i giorni in cui c'è stata lezione)
         csvBuilder.append("Ginnasta;")
         for (giorno in giorniOrdinati) {
             csvBuilder.append("$giorno $nomeMese;")
         }
         csvBuilder.append("Tot. Presenze;Tot. Assenze\n")
 
-        // 3. CREAZIONE RIGHE
+        // cREAZIONE RIGHE
         for (atleta in listaAtlete) {
             csvBuilder.append("${atleta.nome};")
 
@@ -201,17 +211,20 @@ class PresenzeFragment : Fragment() {
             csvBuilder.append("$countPresenze;$countAssenze\n")
         }
 
-        // 4. CREAZIONE FILE FISICO E CONDIVISIONE (Come prima)
+        // FILE PROVIDER
         try {
+            // Creo il file fisicamente nella cache segreta dell'app
             val file = java.io.File(requireContext().cacheDir, "Report_Presenze_$nomeMese.csv")
             java.io.FileWriter(file).use { it.write(csvBuilder.toString()) }
 
+            // Chiedo il permesso tramite un 'Provider' per far leggere questo file a Whatsapp, Email o Excel
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 requireContext(),
                 "${requireContext().packageName}.provider",
                 file
             )
 
+            // Lancio l'Intent
             val intentInvia = Intent(Intent.ACTION_SEND).apply {
                 type = "text/csv"
                 putExtra(Intent.EXTRA_SUBJECT, "Report Excel Presenze - $nomeMese")
@@ -227,20 +240,23 @@ class PresenzeFragment : Fragment() {
         }
     }
 
+    // 7. CLIENT-SIDE FILTERING (Filtro dinamico della lista)
+    @SuppressLint("SetTextI18n")
     private fun mostraDialogFiltroGruppo() {
-        val gruppi = arrayOf("Mostra Tutte", "ago", "preago", "promo1", "promo2", "corsi grandi", "corsi piccoli")
+        val gruppi = arrayOf("Mostra Tutte", "ago", "pre ago", "promo1", "promo2", "corsi grandi", "corsi piccoli")
         AlertDialog.Builder(requireContext()).setTitle("Quale gruppo fa lezione oggi?")
             .setItems(gruppi) { _, quale ->
                 val gruppoScelto = gruppi[quale]
                 binding.btnFiltraGruppo.text = "🔍 Filtra per Gruppo: $gruppoScelto"
 
-                if (gruppoScelto == "Mostra Tutte") {
-                    listaAtlete = listaAtleteCompleta.toMutableList()
+                // Uso la funzione '.filter' di Kotlin per scremare la lista master senza toccare il Database
+                listaAtlete = if (gruppoScelto == "Mostra Tutte") {
+                    listaAtleteCompleta.toMutableList()
                 } else {
                     // Filtra la lista mostrando SOLO quelle del gruppo scelto!
-                    listaAtlete = listaAtleteCompleta.filter { it.gruppo == gruppoScelto }.toMutableList()
+                    listaAtleteCompleta.filter { it.gruppo == gruppoScelto }.toMutableList()
                 }
-                adapter.updateData(listaAtlete)
+                adapter.updateData(listaAtlete) // Mando la lista ristretta all'Adapter
             }.setNegativeButton("Annulla", null).show()
     }
 
