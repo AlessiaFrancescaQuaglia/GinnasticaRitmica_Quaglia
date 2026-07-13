@@ -1,5 +1,6 @@
 package com.example.ginnasticaritmica
 
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -26,10 +27,11 @@ class AthleteDashboardFragment : Fragment() {
         return binding.root
     }
 
+    @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // 1. Recuperiamo l'email dell'atleta attualmente loggata
+        // Recupero l'email dell'atleta attualmente loggata
         val emailAtletaLoggata = FirebaseAuth.getInstance().currentUser?.email
 
         if (emailAtletaLoggata != null) {
@@ -44,6 +46,10 @@ class AthleteDashboardFragment : Fragment() {
                     }
 
                     if (snapshot != null && !snapshot.isEmpty) {
+
+                        //  Nascondiamo il testo "Controllo della tua scheda in corso..." se è presente la scheda
+                        binding.tvStatoMusica.visibility = View.GONE
+
                         // Prendo il primo documento trovato
                         val documento = snapshot.documents[0]
                         // Estraggo la mappa (Attrezzo -> Link).
@@ -58,7 +64,16 @@ class AthleteDashboardFragment : Fragment() {
                             binding.rvMusiche.adapter = MusicaAdapter(tracce, requireContext())
                         } else {
                             binding.rvMusiche.visibility = View.GONE
+                            // Se la scheda c'è ma non ha ancora musiche assegnate
+                            binding.tvStatoMusica.text = "Nessuna musica assegnata al momento."
+                            binding.tvStatoMusica.visibility = View.VISIBLE
                         }
+                    } else {
+                        // SCHEDA NON TROVATA!
+                        // Cambiamo il testo per avvisare la ginnasta invece di lasciarla bloccata nel dubbio
+                        binding.tvStatoMusica.text = "Scheda non trovata.\nL'allenatrice non ha ancora collegato la tua email ($emailAtletaLoggata)."
+                        binding.tvStatoMusica.visibility = View.VISIBLE
+                        binding.rvMusiche.visibility = View.GONE
                     }
                 }
         }

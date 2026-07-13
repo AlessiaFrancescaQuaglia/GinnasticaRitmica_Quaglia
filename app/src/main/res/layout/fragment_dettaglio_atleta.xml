@@ -56,7 +56,9 @@
                     android:layout_width="120dp"
                     android:layout_height="120dp"
                     android:layout_marginTop="16dp"
-                    android:background="@color/grigio_box" />
+                    android:background="@color/grigio_box"
+                    android:contentDescription="TODO"
+                    tools:ignore="ContentDescription" />
 
                 <Button
                     android:id="@+id/btnModificaFoto"
@@ -225,20 +227,25 @@
                         android:layout_marginBottom="8dp"/>
 
                     <LinearLayout
+                        style="?android:attr/buttonBarStyle"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal">
+
                         <Button
                             android:id="@+id/btnRiproduciMusica"
+                            style="?android:attr/buttonBarButtonStyle"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="▶ Riproduci"
                             android:backgroundTint="@color/viola_torre"
                             android:textColor="@android:color/white"
-                            android:layout_marginEnd="4dp"/>
+                            android:layout_marginEnd="4dp" />
+
                         <Button
                             android:id="@+id/btnFermaMusica"
+                            style="?android:attr/buttonBarButtonStyle"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"

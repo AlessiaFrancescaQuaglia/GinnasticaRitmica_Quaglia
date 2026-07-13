@@ -66,9 +66,9 @@
             android:id="@+id/btnGoogle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:backgroundTint="#DB4437"
             android:text="Accedi con Google"
-            android:textColor="@android:color/white"
-            android:backgroundTint="#DB4437" />
+            android:textColor="#000000" />
 
         <!-- TASTO REGISTRATI -->
         <Button
@@ -86,10 +86,10 @@
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="60dp"
+            android:layout_marginBottom="16dp"
             android:text="Sei un'Atleta? Registrati qui"
-            android:textColor="@color/verde_acqua_bottoni"
-            app:strokeColor="@color/verde_acqua_bottoni"
-            android:layout_marginBottom="16dp" />
+            android:textColor="#00838F"
+            app:strokeColor="@color/verde_acqua_bottoni" />
 
     </LinearLayout>
 </layout>

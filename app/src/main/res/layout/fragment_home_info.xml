@@ -30,7 +30,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="ASD GINNASTICA RITMICA"
+                android:text="ASD RITMICA LA TORRE"
                 android:textSize="26sp"
                 android:textStyle="bold"
                 android:textColor="@color/viola_torre"
@@ -46,7 +46,7 @@
                 android:textSize="16sp"
                 android:textStyle="italic" />
 
-            <!-- Sostituita CardView scura con il Riquadro Grigio in stile Dashboard -->
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"

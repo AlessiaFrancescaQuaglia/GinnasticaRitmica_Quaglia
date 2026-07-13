@@ -4,7 +4,9 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="24dp"
-    android:background="@color/sfondo_app">
+    android:background="@color/sfondo_app"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="HardcodedText, TextContrastCheck, VisualLintButtonSize, VisualLintTextFieldSize">
 
     <TextView
         android:layout_width="wrap_content"
@@ -23,7 +25,8 @@
         android:hint="Nome della Gara (es. Regionale LA)"
         android:textColor="@color/testo_titoli"
         android:textColorHint="@color/testo_chiaro"
-        android:background="@android:drawable/editbox_background"/>
+        android:background="@android:drawable/editbox_background"
+        tools:ignore="TextFields" />
 
     <EditText
         android:id="@+id/etLuogoGara"
@@ -34,7 +37,8 @@
         android:layout_marginTop="8dp"
         android:textColor="@color/testo_titoli"
         android:textColorHint="@color/testo_chiaro"
-        android:background="@android:drawable/editbox_background"/>
+        android:background="@android:drawable/editbox_background"
+        tools:ignore="TextFields" />
 
     <TextView
         android:id="@+id/tvDataGara"

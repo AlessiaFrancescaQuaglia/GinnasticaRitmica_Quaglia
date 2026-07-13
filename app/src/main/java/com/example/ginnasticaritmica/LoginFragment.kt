@@ -14,7 +14,7 @@ import com.firebase.ui.auth.data.model.FirebaseAuthUIAuthenticationResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
-//GATEWAY DI SICUREZZA: Smista l'accesso in base alla gestione dei Ruoli (Allenatrice/Atleta)
+//GATEWAY DI SICUREZZA: Smista l'accesso in base alla gestione dei Ruoli
 class LoginFragment : Fragment() {
 
     private var _binding: FragmentLoginBinding? = null

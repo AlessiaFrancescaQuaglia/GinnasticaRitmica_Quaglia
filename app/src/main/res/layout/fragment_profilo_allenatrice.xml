@@ -55,15 +55,18 @@
                     android:textColor="@color/viola_torre"
                     android:textStyle="bold"
                     android:layout_marginBottom="4dp"/>
+
                 <EditText
                     android:id="@+id/etNomeAllenatrice"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
+                    android:layout_marginBottom="16dp"
+                    android:autofillHints=""
                     android:background="@android:drawable/editbox_background"
                     android:hint="Inserisci il tuo nome"
                     android:inputType="textPersonName"
                     android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="16dp"/>
+                    android:textColorHint="#757575" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -72,32 +75,39 @@
                     android:textColor="@color/viola_torre"
                     android:textStyle="bold"
                     android:layout_marginBottom="4dp"/>
+
                 <EditText
                     android:id="@+id/etCognomeAllenatrice"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
+                    android:layout_marginBottom="16dp"
+                    android:autofillHints=""
                     android:background="@android:drawable/editbox_background"
                     android:hint="Inserisci il tuo cognome"
                     android:inputType="textPersonName"
                     android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="16dp"/>
+                    android:textColorHint="#757575" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:autofillHints=""
                     android:text="Data di Nascita"
                     android:textColor="@color/viola_torre"
                     android:textStyle="bold"
                     android:layout_marginBottom="4dp"/>
+
                 <EditText
                     android:id="@+id/etDataNascitaAllenatrice"
                     android:layout_width="match_parent"
                     android:layout_height="50dp"
+                    android:layout_marginBottom="16dp"
                     android:background="@android:drawable/editbox_background"
                     android:hint="GG/MM/AAAA"
+                    android:importantForAutofill="no"
                     android:inputType="date"
                     android:paddingHorizontal="12dp"
-                    android:layout_marginBottom="16dp"/>
+                    android:textColorHint="#757575" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -153,10 +163,10 @@
                     android:id="@+id/tvStatoFile"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
                     android:text="Nessun file selezionato"
-                    android:textSize="12sp"
-                    android:textColor="@color/testo_chiaro"
-                    android:layout_marginBottom="24dp"/>
+                    android:textColor="#757575"
+                    android:textSize="12sp" />
 
                 <Button
                     android:id="@+id/btnSalvaProfilo"
