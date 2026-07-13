@@ -42,11 +42,12 @@
         android:id="@+id/etEmailAtleta"
         android:layout_width="match_parent"
         android:layout_height="50dp"
+        android:layout_marginBottom="16dp"
+        android:autofillHints=""
         android:hint="Email della Ginnasta (per il suo accesso)"
         android:inputType="textEmailAddress"
         android:textColor="@color/testo_titoli"
-        android:textColorHint="@color/testo_chiaro"
-        android:layout_marginBottom="16dp"/>
+        android:textColorHint="#757575" />
 
     <Button
         android:id="@+id/btnDataNascita"

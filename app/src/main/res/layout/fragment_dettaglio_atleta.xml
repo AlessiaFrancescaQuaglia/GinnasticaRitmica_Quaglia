@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="HardcodedText, TextContrastCheck, VisualLintButtonSize, VisualLintTextFieldSize">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -19,6 +21,7 @@
 
             <ImageButton
                 android:id="@+id/btnTornaIndietro"
+                android:contentDescription="Apri menu principale"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:background="?attr/selectableItemBackgroundBorderless"

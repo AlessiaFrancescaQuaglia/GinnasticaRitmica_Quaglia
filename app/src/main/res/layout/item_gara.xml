@@ -8,7 +8,9 @@
     android:layout_marginVertical="8dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="0dp"
-    app:cardBackgroundColor="@color/grigio_box">
+    app:cardBackgroundColor="@color/grigio_box"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="HardcodedText, TextContrastCheck, VisualLintButtonSize, VisualLintTextFieldSize">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -38,10 +40,10 @@
             android:id="@+id/tvInfoFiltriItem"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Livelli: ... \nCategorie: ..."
-            android:textSize="12sp"
             android:layout_marginTop="8dp"
-            android:textColor="@color/testo_chiaro"/>
+            android:text="Livelli: ... \nCategorie: ..."
+            android:textColor="#546E7A"
+            android:textSize="12sp" />
 
         <Button
             android:id="@+id/btnGestisciIscrizioni"

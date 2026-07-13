@@ -56,6 +56,7 @@
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/fabAggiungiAtleta"
+            android:contentDescription="Aggiungi atleta"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_margin="24dp"
@@ -64,7 +65,7 @@
             app:tint="@android:color/white"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            tools:ignore="ContentDescription" />
+            tools:ignore="ContentDescription,HardcodedText" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>

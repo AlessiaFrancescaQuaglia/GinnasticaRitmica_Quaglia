@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto">
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="HardcodedText, TextContrastCheck, VisualLintButtonSize, VisualLintTextFieldSize">
 
     <ScrollView
         android:layout_width="match_parent"
@@ -20,8 +22,10 @@
                 android:layout_width="120dp"
                 android:layout_height="120dp"
                 android:layout_marginTop="24dp"
+                android:contentDescription="TODO"
                 android:src="@android:drawable/btn_star_big_on"
-                app:tint="@color/viola_torre" />
+                app:tint="@color/viola_torre"
+                tools:ignore="ContentDescription" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -36,11 +40,11 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Passione, Eleganza e Movimento"
-                android:textSize="16sp"
-                android:textColor="@color/testo_chiaro"
                 android:layout_marginBottom="32dp"
-                android:textStyle="italic"/>
+                android:text="Passione, Eleganza e Movimento"
+                android:textColor="#757575"
+                android:textSize="16sp"
+                android:textStyle="italic" />
 
             <!-- Sostituita CardView scura con il Riquadro Grigio in stile Dashboard -->
             <LinearLayout

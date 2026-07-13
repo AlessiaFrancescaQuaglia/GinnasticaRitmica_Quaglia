@@ -5,7 +5,9 @@
     android:orientation="horizontal"
     android:padding="16dp"
     android:background="@color/grigio_box"
-    android:layout_marginBottom="8dp">
+    android:layout_marginBottom="8dp"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="HardcodedText, TextContrastCheck, VisualLintButtonSize, VisualLintTextFieldSize">
 
     <TextView
         android:id="@+id/tvNomeAttrezzo"

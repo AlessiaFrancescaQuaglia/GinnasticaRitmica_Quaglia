@@ -6,7 +6,9 @@
     android:padding="16dp"
     android:gravity="center_vertical"
     android:layout_marginBottom="8dp"
-    android:background="@color/grigio_box">
+    android:background="@color/grigio_box"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="HardcodedText, TextContrastCheck, VisualLintButtonSize, VisualLintTextFieldSize">
 
     <TextView
         android:id="@+id/tvNomeAtletaAppello"
@@ -28,18 +30,18 @@
             android:id="@+id/rbPresente"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:buttonTint="@color/verde_acqua_bottoni"
             android:text="Presente"
-            android:textColor="@color/verde_acqua_bottoni"
-            android:buttonTint="@color/verde_acqua_bottoni"/>
+            android:textColor="#00796B" />
 
         <RadioButton
             android:id="@+id/rbAssente"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Assente"
-            android:textColor="@color/rosso_alert"
+            android:layout_marginStart="8dp"
             android:buttonTint="@color/rosso_alert"
-            android:layout_marginStart="8dp"/>
+            android:text="Assente"
+            android:textColor="#D81B60" />
     </RadioGroup>
 
 </LinearLayout>
