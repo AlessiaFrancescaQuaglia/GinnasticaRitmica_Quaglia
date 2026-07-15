@@ -6,7 +6,6 @@ import androidx.lifecycle.ViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import java.util.Calendar
 
 class GestioneAtleteViewModel : ViewModel() {
 
@@ -50,7 +49,8 @@ class GestioneAtleteViewModel : ViewModel() {
     fun aggiungiAtleta(nome: String, cognome: String, livello: String, dataNascita: String, dataCertificato: String, emailAtleta: String) {
         val idAllenatriceAttuale = auth.currentUser?.uid ?: return
 
-        val cat = calcolaCategoriaDaData(dataNascita)
+        // --- MAGIA SRP: Richiamiamo la logica centralizzata dal file Utils ---
+        val cat = CategoriaUtils.calcolaCategoriaDaStringa(dataNascita)
         val idDocumento = db.collection("Atlete").document().id
 
         val nuovaAtleta = hashMapOf(
@@ -71,29 +71,10 @@ class GestioneAtleteViewModel : ViewModel() {
             .addOnFailureListener { e -> _toastMessage.value = "Errore: ${e.message}" }
     }
 
-    private fun calcolaCategoriaDaData(dataStr: String): String {
-        val parts = dataStr.split("-")
-        val annoNascita = parts[0].toInt()
-        val annoCorrente = Calendar.getInstance().get(Calendar.YEAR)
-        val eta = annoCorrente - annoNascita
-        return when {
-            eta < 8 -> "Pre-agonismo"
-            eta in 8..9 -> "Allieve 1"
-            eta == 10 -> "Allieve 2"
-            eta == 11 -> "Allieve 3"
-            eta == 12 -> "Allieve 4"
-            eta == 13 -> "Allieve 5"
-            eta == 14 -> "Junior 1"
-            eta == 15 -> "Junior 2"
-            eta == 16 -> "Senior 1"
-            eta in 17..18 -> "Senior 2"
-            else -> "Senior 3"
-        }
-    }
-
     // Quando il Fragment muore, il ViewModel pulisce il database da solo
     override fun onCleared() {
         super.onCleared()
         atleteListener?.remove()
     }
 }
+

@@ -164,7 +164,7 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-//GRAFICA
+    //GRAFICA
     @SuppressLint("SetTextI18n")
     private fun scaricaProfiloAtleta(id: String) {
         db.collection("Atlete").document(id).get().addOnSuccessListener { documento ->
@@ -285,20 +285,16 @@ class DettaglioAtletaFragment : Fragment() {
     @SuppressLint("SetTextI18n")
     private fun mostraCalendarioNascita() {
         val cal = Calendar.getInstance()
-        val annoCorrente = cal.get(Calendar.YEAR)
         DatePickerDialog(requireContext(), { _, year, month, day ->
-            var eta = annoCorrente - year
-            if (cal.get(Calendar.MONTH) < month || (cal.get(Calendar.MONTH) == month && cal.get(Calendar.DAY_OF_MONTH) < day)) eta--
-            val nuovaCategoria = when {
-                eta in 8..9 -> "Allieve 1"; eta == 10 -> "Allieve 2"; eta == 11 -> "Allieve 3"
-                eta == 12 -> "Allieve 4"; eta == 13 -> "Allieve 5 – Prejunior"; eta == 14 -> "Junior 1"
-                eta == 15 -> "Junior 2"; eta == 16 -> "Senior 1"; eta in 17..18 -> "Senior 2"
-                eta >= 19 -> "Senior 3"; else -> "Pre-agonismo (< 8 anni)"
-            }
+
+            // --- MAGIA SRP: Richiamiamo la logica centralizzata dal file Utils ---
+            val nuovaCategoria = CategoriaUtils.calcolaCategoria(year, month, day)
             val dataScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
+
             binding.tvDataNascita.text = "Data di nascita: $dataScelta"
             atletaCorrente?.categoria = nuovaCategoria
             aggiornaIntestazione()
+
             atletaId?.let { id ->
                 val aggiornamenti = mapOf("dataNascita" to dataScelta, "categoria" to nuovaCategoria)
                 db.collection("Atlete").document(id).update(aggiornamenti)
