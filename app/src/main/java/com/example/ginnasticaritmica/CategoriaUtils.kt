@@ -31,7 +31,7 @@ object CategoriaUtils {
             val giorno = parts[2].toInt()
 
             calcolaCategoria(anno, mese, giorno)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             "Categoria Sconosciuta"
         }
     }
