@@ -5,7 +5,6 @@ import android.app.AlertDialog
 import android.app.DatePickerDialog
 import android.graphics.Bitmap
 import android.graphics.Color
-import android.media.MediaPlayer
 import android.os.Bundle
 import android.util.Base64
 import android.view.LayoutInflater
@@ -23,15 +22,13 @@ import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import androidx.core.graphics.toColorInt
-import androidx.core.net.toUri
 
-// 1. PANNELLO DI CONTROLLO ATLETA: Integra permessi, CRUD, grafici e Media Streaming.
+//PANNELLO DI CONTROLLO ATLETA: Integra permessi, CRUD, grafici e Media Streaming (Delegato).
 class DettaglioAtletaFragment : Fragment() {
 
     private var _binding: FragmentDettaglioAtletaBinding? = null
@@ -41,11 +38,11 @@ class DettaglioAtletaFragment : Fragment() {
     private var atletaId: String? = null
     private var atletaCorrente: Atleta? = null
 
-    // Gestore del flusso audio in streaming
-    private var mediaPlayer: MediaPlayer? = null
+    // Deleghiamo la riproduzione al nostro Manager esterno
+    private lateinit var musicManager: MusicManager
     private var tracceDisponibili: Map<String, String> = emptyMap()
 
-    //chiede il permesso della fotocamera
+    // Chiede il permesso della fotocamera
     private val requestCameraPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         if (isGranted) {
             takePictureLauncher.launch(null)
@@ -54,7 +51,7 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    //launcher per scattare la foto
+    // Launcher per scattare la foto
     private val takePictureLauncher = registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
         if (bitmap != null) salvaFotoInBase64(bitmap)
         else Toast.makeText(requireContext(), "Azione annullata", Toast.LENGTH_SHORT).show()
@@ -72,20 +69,38 @@ class DettaglioAtletaFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // NIZIALIZZAZIONE MUSIC MANAGER
+        musicManager = MusicManager(
+            context = requireContext(),
+            onPrepared = {
+                binding.btnRiproduciMusica.visibility = View.GONE
+                binding.btnFermaMusica.visibility = View.VISIBLE
+            },
+            onCompletion = {
+                binding.btnRiproduciMusica.visibility = View.VISIBLE
+                binding.btnFermaMusica.visibility = View.GONE
+            },
+            onError = {
+                Toast.makeText(requireContext(), "Errore di riproduzione.", Toast.LENGTH_LONG).show()
+                binding.btnRiproduciMusica.visibility = View.VISIBLE
+                binding.btnFermaMusica.visibility = View.GONE
+            }
+        )
+
         // Estrazione dati dal Bundle (ricarico dal DB usando l'ID)
         atletaId = arguments?.getString("atletaId")
         atletaId?.let { scaricaProfiloAtleta(it) }
 
         // Mappatura modifiche anagrafiche, tecniche e account
         binding.tvNomeDettaglio.text = arguments?.getString("atletaNome")
-        //GESTIONE BOTTONI
+
+        // GESTIONE BOTTONI
         binding.btnTornaIndietro.setOnClickListener { findNavController().navigateUp() }
         binding.btnModificaLivello.setOnClickListener { mostraDialogLivello() }
         binding.btnModificaNascita.setOnClickListener { mostraCalendarioNascita() }
         binding.btnModificaAttrezzi.setOnClickListener { mostraDialogAttrezzi() }
         binding.btnModificaGruppo.setOnClickListener { mostraDialogGruppo() }
-        // 3. AGGIORNAMENTO MIRATO FIRESTORE: Usa '.update()' invece di '.set()' per sovrascrivere
-        // un singolo campo (email) senza alterare gli altri dati del documento.
+
         binding.btnModificaEmail.setOnClickListener {
             val inputEmail = EditText(requireContext())
             inputEmail.hint = "Inserisci l'email della ginnasta"
@@ -132,7 +147,7 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnCaricaMusica.setOnClickListener { mostraDialogSceltaAttrezzoDropbox() }
         impostaBottoniRiproduzione()
 
-        // --- GESTIONE BOTTONI DIARIO PRESENZE ---
+        //GESTIONE BOTTONI DIARIO PRESENZE
         binding.btnAggiungiPresenza.setOnClickListener {
             val dataOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             atletaCorrente?.let {
@@ -164,11 +179,10 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    //GRAFICA
+    // GRAFICA E AGGIORNAMENTI
     @SuppressLint("SetTextI18n")
     private fun scaricaProfiloAtleta(id: String) {
         db.collection("Atlete").document(id).get().addOnSuccessListener { documento ->
-
             if (documento != null && documento.exists()) {
                 val atleta = documento.toObject(Atleta::class.java)
                 atleta?.let {
@@ -182,7 +196,6 @@ class DettaglioAtletaFragment : Fragment() {
                     binding.tvScadenzaCertificato.text = it.scadenzaCertificato.ifEmpty { "Nessuna scadenza inserita" }
                     binding.tvStatoMusica.text = if (it.tracceMusicali.isNotEmpty()) "Musica caricata" else "Nessuna traccia caricata"
 
-                    // RECUPERO E MOSTRA EMAIL
                     val emailSalvata = documento.getString("email") ?: ""
                     if (emailSalvata.isNotEmpty()) {
                         binding.tvEmailAtletaDettaglio.text = "Email di accesso: $emailSalvata"
@@ -191,8 +204,6 @@ class DettaglioAtletaFragment : Fragment() {
                     }
 
                     aggiornaIntestazione()
-
-                    // Mostriamo il grafico usando la grandezza delle liste
                     impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
 
                     if (it.fotoUrl.isNotEmpty()) {
@@ -219,7 +230,6 @@ class DettaglioAtletaFragment : Fragment() {
         binding.tvCategoriaDettaglio.text = "$liv • $cat"
     }
 
-    // funzione per grafico torta presenze/assenze
     private fun impostaGrafico(presenze: Int, assenze: Int) {
         val chart = binding.pieChartPresenze
 
@@ -234,8 +244,8 @@ class DettaglioAtletaFragment : Fragment() {
 
         val dataSet = PieDataSet(entries, "")
         dataSet.colors = listOf(
-            "#03DAC5".toColorInt(), // Verde acqua per Presenze
-            "#CF6679".toColorInt()  // Rosso per Assenze
+            "#03DAC5".toColorInt(),
+            "#CF6679".toColorInt()
         )
         dataSet.valueTextColor = Color.WHITE
         dataSet.valueTextSize = 14f
@@ -243,19 +253,18 @@ class DettaglioAtletaFragment : Fragment() {
         chart.data = PieData(dataSet)
         chart.description.isEnabled = false
         chart.legend.textColor = Color.WHITE
-        chart.setHoleColor("#2A2A2A".toColorInt()) // Colore sfondo card
+        chart.setHoleColor("#2A2A2A".toColorInt())
         chart.setTransparentCircleAlpha(0)
         chart.animateY(1000)
         chart.invalidate()
     }
 
-    //funzione fotocamera
+    // DELEGAZIONE BASE64 AL PHOTO MANAGER
     private fun salvaFotoInBase64(bitmap: Bitmap) {
         Toast.makeText(requireContext(), "Elaborazione foto...", Toast.LENGTH_SHORT).show()
-        val baos = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos)
-        val data = baos.toByteArray()
-        val stringaBase64 = Base64.encodeToString(data, Base64.NO_WRAP)
+
+        // Chiamo la funzione dal nuovo Singleton
+        val stringaBase64 = PhotoManager.encodeBitmapToBase64(bitmap)
 
         atletaId?.let { id ->
             db.collection("Atlete").document(id).update("fotoUrl", stringaBase64)
@@ -266,10 +275,8 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    // funzione profilo tecnico
     @SuppressLint("SetTextI18n")
     private fun mostraDialogLivello() {
-        //livelli delle atlete
         val livelli = arrayOf("LA1", "LA2", "LB1", "LB2", "LC1", "LC2", "LD", "LE", "Gold")
         AlertDialog.Builder(requireContext()).setTitle("Imposta Livello ")
             .setItems(livelli) { _, quale ->
@@ -281,13 +288,11 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
-    //funzione per calcolare la categoria in base all'età
     @SuppressLint("SetTextI18n")
     private fun mostraCalendarioNascita() {
         val cal = Calendar.getInstance()
         DatePickerDialog(requireContext(), { _, year, month, day ->
 
-            // --- MAGIA SRP: Richiamiamo la logica centralizzata dal file Utils ---
             val nuovaCategoria = CategoriaUtils.calcolaCategoria(year, month, day)
             val dataScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
 
@@ -303,8 +308,6 @@ class DettaglioAtletaFragment : Fragment() {
         }, cal.get(Calendar.YEAR) - 10, cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }
 
-
-    //funzione per gli attrezzi dell'anno
     @SuppressLint("SetTextI18n")
     private fun mostraDialogAttrezzi() {
         val tuttiGliAttrezzi = arrayOf("Corpo Libero", "Fune", "Cerchio", "Palla", "Clavette", "Nastro")
@@ -325,7 +328,6 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
-    //funzione per il gruppo di lavoro
     @SuppressLint("SetTextI18n")
     private fun mostraDialogGruppo() {
         val gruppi = arrayOf("ago", "preago", "promo1", "promo2", "corsi grandi", "corsi piccoli")
@@ -338,7 +340,6 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
-    //funzione per mostrare la finestra di conferma per eliminare un atleta
     private fun mostraConfermaEliminazione() {
         AlertDialog.Builder(requireContext()).setTitle("Eliminare Ginnasta?")
             .setMessage("Sei sicura di voler eliminare definitivamente questa atleta?")
@@ -346,14 +347,10 @@ class DettaglioAtletaFragment : Fragment() {
             .setNegativeButton("Annulla", null).show()
     }
 
-
-    //funzione per aggiornare i dati su Firebase
     private fun aggiornaDatoSuFirebase(campo: String, nuovoValore: Any) {
         atletaId?.let { id -> db.collection("Atlete").document(id).update(campo, nuovoValore) }
     }
 
-
-    //funzione per eliminare un atleta
     private fun eliminaAtleta() {
         atletaId?.let { id ->
             db.collection("Atlete").document(id).delete().addOnSuccessListener {
@@ -363,7 +360,6 @@ class DettaglioAtletaFragment : Fragment() {
         }
     }
 
-    //funzione per scelta attrezzi nel caricamento musica
     private fun mostraDialogSceltaAttrezzoDropbox() {
         val attrezzi = arrayOf("Corpo Libero", "Fune", "Cerchio", "Palla", "Clavette", "Nastro")
         AlertDialog.Builder(requireContext()).setTitle("Scegli l'attrezzo")
@@ -371,7 +367,6 @@ class DettaglioAtletaFragment : Fragment() {
             .setNegativeButton("Annulla", null).show()
     }
 
-    //funzione per popup di inserimento link musica
     private fun mostraPopupInserimentoLink(attrezzo: String) {
         val inputLink = EditText(requireContext())
         inputLink.hint = "Incolla qui il link di Dropbox"
@@ -383,8 +378,6 @@ class DettaglioAtletaFragment : Fragment() {
             }.setNegativeButton("Annulla", null).show()
     }
 
-
-    //funzione che salva il link su Firebase
     @SuppressLint("SetTextI18n")
     private fun salvaLinkDropboxSuFirestore(attrezzo: String, linkOriginale: String) {
         val id = atletaId ?: return
@@ -397,55 +390,31 @@ class DettaglioAtletaFragment : Fragment() {
             }
     }
 
-    //funzione per bottone di riproduzione musica
+    // RIPRODUZIONE DELEGATA AL MUSIC MANAGER
     private fun impostaBottoniRiproduzione() {
         binding.btnRiproduciMusica.setOnClickListener {
             if (tracceDisponibili.isEmpty()) return@setOnClickListener
             val attrezzi = tracceDisponibili.keys.toTypedArray()
+
             AlertDialog.Builder(requireContext()).setTitle("Quale base vuoi riprodurre?")
                 .setItems(attrezzi) { _, quale ->
-                    tracceDisponibili[attrezzi[quale]]?.let { url -> avviaRiproduzione(url) }
+                    tracceDisponibili[attrezzi[quale]]?.let { url ->
+                        Toast.makeText(requireContext(), "Caricamento traccia...", Toast.LENGTH_SHORT).show()
+                        musicManager.play(url)
+                    }
                 }.setNegativeButton("Annulla", null).show()
         }
-        binding.btnFermaMusica.setOnClickListener { fermaRiproduzione() }
-    }
 
-    //funzione per avvio riproduzione
-    private fun avviaRiproduzione(url: String) {
-        fermaRiproduzione()
-        Toast.makeText(requireContext(), "Caricamento traccia...", Toast.LENGTH_SHORT).show()
-        try {
-            mediaPlayer = MediaPlayer().apply {
-                setAudioAttributes(android.media.AudioAttributes.Builder().setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC).setUsage(android.media.AudioAttributes.USAGE_MEDIA).build())
-                setDataSource(requireContext(), url.toUri())
-                setOnErrorListener { _, _, _ ->
-                    Toast.makeText(requireContext(), "Errore di riproduzione.", Toast.LENGTH_LONG).show()
-                    fermaRiproduzione()
-                    true
-                }
-                setOnPreparedListener {
-                    start()
-                    binding.btnRiproduciMusica.visibility = View.GONE
-                    binding.btnFermaMusica.visibility = View.VISIBLE
-                }
-                setOnCompletionListener { fermaRiproduzione() }
-                prepareAsync()
-            }
-        } catch (_: Exception) {}
-    }
-
-
-    //funzione per fermare riproduzione
-    private fun fermaRiproduzione() {
-        mediaPlayer?.let { if (it.isPlaying) it.stop(); it.release() }
-        mediaPlayer = null
-        binding.btnRiproduciMusica.visibility = View.VISIBLE
-        binding.btnFermaMusica.visibility = View.GONE
+        binding.btnFermaMusica.setOnClickListener {
+            musicManager.stop()
+            binding.btnRiproduciMusica.visibility = View.VISIBLE
+            binding.btnFermaMusica.visibility = View.GONE
+        }
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
-        fermaRiproduzione()
+        musicManager.stop()
         _binding = null
     }
 }
