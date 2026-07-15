@@ -3,7 +3,6 @@ package com.example.ginnasticaritmica
 data class Atleta(
     var id: String = "",
     var nome: String = "",
-    var cognome: String = "",
     var categoria: String = "",
     var livello: String = "",
     var telefonoContatto: String = "",

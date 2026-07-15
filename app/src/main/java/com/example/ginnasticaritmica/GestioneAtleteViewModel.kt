@@ -45,11 +45,68 @@ class GestioneAtleteViewModel : ViewModel() {
             }
     }
 
-    //funzione per aggiungere un nuovo atleta
+    // funzione per aggiungere un nuovo atleta o collegarne uno esistente
     fun aggiungiAtleta(nome: String, cognome: String, livello: String, dataNascita: String, dataCertificato: String, emailAtleta: String) {
         val idAllenatriceAttuale = auth.currentUser?.uid ?: return
 
-        // --- MAGIA SRP: Richiamiamo la logica centralizzata dal file Utils ---
+        // Uniamo nome e cognome esattamente come li salviamo nel database
+        val nomeCompleto = "$nome $cognome"
+
+        // Eseguiamo una "Composite Query" (Query Composta) per cercare corrispondenze esatte su 2 campi
+        db.collection("Atlete")
+            .whereEqualTo("nome", nomeCompleto)
+            .whereEqualTo("dataNascita", dataNascita)
+            .get()
+            .addOnSuccessListener { querySnapshot ->
+
+                val emailPulita = emailAtleta.trim().lowercase()
+
+                if (querySnapshot != null && !querySnapshot.isEmpty) {
+
+                    // --- CASO 1: L'ATLETA ESISTE GIÀ! ---
+                    // Recuperiamo il documento esistente (prendiamo il primo risultato trovato)
+                    val documentoEsistente = querySnapshot.documents[0]
+                    val idAtletaEsistente = documentoEsistente.id
+
+                    // Prepariamo la mappa dei dati da aggiornare
+                    val aggiornamenti = mutableMapOf<String, Any>(
+                        "idAllenatrice" to idAllenatriceAttuale
+                    )
+
+                    // Se la nuova allenatrice ha inserito un'email, approfittiamo per aggiornare il profilo
+                    if (emailPulita.isNotEmpty()) {
+                        aggiornamenti["email"] = emailPulita
+                    }
+
+                    // Aggiorniamo la scheda senza creare duplicati
+                    db.collection("Atlete").document(idAtletaEsistente)
+                        .update(aggiornamenti)
+                        .addOnSuccessListener {
+                            _toastMessage.value = "$nomeCompleto era già registrata ed è stata trasferita nel tuo gruppo!"
+                        }
+                        .addOnFailureListener { e ->
+                            _toastMessage.value = "Errore nel trasferimento: ${e.message}"
+                        }
+                } else {
+                    // --- CASO 2: L'ATLETA NON ESISTE ---
+                    creaNuovoDocumentoAtleta(nome, cognome, livello, dataNascita, dataCertificato, emailPulita, idAllenatriceAttuale)
+                }
+            }
+            .addOnFailureListener { e ->
+                _toastMessage.value = "Errore durante il controllo del database: ${e.message}"
+            }
+    }
+
+    // Funzione helper privata per creare fisicamente un nuovo atleta sul DB
+    private fun creaNuovoDocumentoAtleta(
+        nome: String,
+        cognome: String,
+        livello: String,
+        dataNascita: String,
+        dataCertificato: String,
+        emailAtleta: String,
+        idAllenatriceAttuale: String
+    ) {
         val cat = CategoriaUtils.calcolaCategoriaDaStringa(dataNascita)
         val idDocumento = db.collection("Atlete").document().id
 
@@ -77,4 +134,3 @@ class GestioneAtleteViewModel : ViewModel() {
         atleteListener?.remove()
     }
 }
-
