@@ -54,7 +54,7 @@ class AthleteDashboardFragment : Fragment() {
 
                         // Prendo il primo documento trovato
                         val documento = snapshot.documents[0]
-                        // Estraggo la mappa (Attrezzo -> Link).
+                        // Estraggo la mappa (Attrezzo e Link musicale)
                         val tracce = documento.get("tracceMusicali") as? Map<String, String>
 
                         //Gestione dinamica dell'interfaccia. Se la mappa contiene dati, mostra la RecyclerView.

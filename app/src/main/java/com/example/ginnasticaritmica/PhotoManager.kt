@@ -4,7 +4,7 @@ import android.graphics.Bitmap
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 
-// 3. IMAGE PROCESSING UTILS: Separa la logica di compressione e codifica dal layer visivo.
+//Separa la logica di compressione e codifica dal layer visivo.
 object PhotoManager {
 
     //Prende un'immagine Bitmap, la comprime e la trasforma in una stringa Base64

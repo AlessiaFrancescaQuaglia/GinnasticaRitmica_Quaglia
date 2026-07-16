@@ -23,7 +23,7 @@ class GestioneAtleteFragment : Fragment() {
     private var _binding: FragmentGestioneAtleteBinding? = null
     private val binding get() = _binding!!
 
-    // COLLEGIAMO IL CERVELLO (ViewModel)
+    // COLLEGIAMO IL VIEWMODEL AL FRAGMENT
     private val viewModel: GestioneAtleteViewModel by viewModels()
     private lateinit var adapter: AtletaAdapter
 
@@ -38,7 +38,9 @@ class GestioneAtleteFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        // INIZIALIZZAZIONE LISTA
         adapter = AtletaAdapter(emptyList())
+
         binding.recyclerViewAtlete.layoutManager = LinearLayoutManager(requireContext())
         binding.recyclerViewAtlete.adapter = adapter
 
@@ -50,7 +52,7 @@ class GestioneAtleteFragment : Fragment() {
             adapter.updateData(listaAggiornata)
         }
 
-        // Se il ViewModel vuole mandare un messaggio, il Fragment mostra il Toast
+        // Se il ViewModel vuole mandare un messaggio, il Fragment mostra un Toast
         viewModel.toastMessage.observe(viewLifecycleOwner) { messaggio ->
             Toast.makeText(requireContext(), messaggio, Toast.LENGTH_SHORT).show()
         }
@@ -59,21 +61,19 @@ class GestioneAtleteFragment : Fragment() {
     @SuppressLint("SetTextI18n")
     private fun mostraPopupAggiunta() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_aggiungi_atleta, null)
-
         val etNome = dialogView.findViewById<EditText>(R.id.etNome)
         val etCognome = dialogView.findViewById<EditText>(R.id.etCognome)
         // Recuperiamo il nuovo campo Email dalla grafica del popup
         val etEmailAtleta = dialogView.findViewById<EditText>(R.id.etEmailAtleta)
-
         val btnDataNascita = dialogView.findViewById<android.widget.Button>(R.id.btnDataNascita)
         val btnDataCert = dialogView.findViewById<android.widget.Button>(R.id.btnDataCertificato)
         val spinner = dialogView.findViewById<android.widget.Spinner>(R.id.spinnerLivello)
-
-        val livelli = arrayOf("LA1", "LA2", "LB1", "LB2", "LC1", "LC2", "LD", "LE", "Silver Base", "Gold")
+        val livelli = arrayOf("pre-agonistica","LA1", "LA2", "LB1", "LB2", "LC1", "LC2", "LD", "LE", "Silver Base", "Gold")
         spinner.adapter = ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, livelli)
 
         var dataNascitaScelta = ""
         var dataCertScelta = ""
+
 
         btnDataNascita.setOnClickListener {
             DatePickerDialog(requireContext(), { _, y, m, d ->

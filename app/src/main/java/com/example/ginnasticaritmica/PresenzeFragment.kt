@@ -87,7 +87,7 @@ class PresenzeFragment : Fragment() {
                         if (atleta != null) listaAtleteCompleta.add(atleta)
                     }
 
-                    // Riapplichiamo il filtro corrente (così l'interfaccia non "salta" all'improvviso)
+                    // Riapplichiamo il filtro corrente (così l'interfaccia non si blocca)
                     listaAtlete = if (gruppoAttualeFiltro == "Mostra Tutte") {
                         listaAtleteCompleta.toMutableList()
                     } else {
@@ -112,7 +112,6 @@ class PresenzeFragment : Fragment() {
         binding.btnSalvaAppello.text = "Salvataggio..."
 
         val batch = db.batch()
-        // BEST PRACTICE: Uso Locale.US per garantire il formato ISO corretto al 100% indipendentemente dalla lingua del telefono
         val dataOggiIso = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
 
         for ((idAtleta, isPresente) in stati) {
@@ -154,7 +153,7 @@ class PresenzeFragment : Fragment() {
     private fun esportaDatiMese(numeroMese: Int, nomeMese: String) {
         val annoCorrente = Calendar.getInstance().get(Calendar.YEAR)
 
-        // Usiamo Locale.US per evitare che i numeri vengano formattati in lingue locali (es. numeri orientali o arabi)
+        // Usiamo Locale.US per evitare che i numeri vengano formattati in lingue locali
         val prefissoMese = String.format(Locale.US, "%04d-%02d-", annoCorrente, numeroMese)
 
         val giorniAttivi = mutableSetOf<Int>()
@@ -219,8 +218,8 @@ class PresenzeFragment : Fragment() {
                 file
             )
 
+            // Apre il file con un Intent
             val intentApri = Intent(Intent.ACTION_VIEW).apply {
-                // Usiamo setDataAndType per dire ad Android: "Apri questo esatto file (uri) che è un CSV"
                 setDataAndType(uri, "text/csv")
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }

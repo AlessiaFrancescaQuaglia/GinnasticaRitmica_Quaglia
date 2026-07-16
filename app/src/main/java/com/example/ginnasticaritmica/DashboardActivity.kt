@@ -6,7 +6,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
-//Questa è l'unica Activity dell'app, fa da "scatola" per i Fragment.
+//Questa è l Activity che contiene il fragment CoachDashboard.
 class DashboardActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {

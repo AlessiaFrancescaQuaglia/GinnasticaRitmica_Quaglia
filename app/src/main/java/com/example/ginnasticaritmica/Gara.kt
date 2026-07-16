@@ -6,7 +6,7 @@ data class Gara(
     var data: String = "",
     var luogo: String = "",
 
-    // Le liste che faranno da "Filtro" per le iscrizioni!
+    // Le liste che faranno da "Filtro" per le iscrizioni
     var livelliAmmessi: List<String> = emptyList(),
     var categorieAmmesse: List<String> = emptyList(),
     var attrezziAmmessi: List<String> = emptyList(),

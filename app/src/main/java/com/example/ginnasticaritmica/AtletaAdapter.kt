@@ -17,8 +17,8 @@ import java.util.concurrent.TimeUnit
 class AtletaAdapter(private var listaAtlete: List<Atleta>) :
     RecyclerView.Adapter<AtletaAdapter.AtletaViewHolder>() {
 
-    // 1. ViewHolder: pattern standard per ottimizzare la RecyclerView
-    // Ci permette di "scoprire" le View del layout una volta sola per riga.
+    // ViewHolder: pattern standard per ottimizzare la RecyclerView
+    //permette di scoprire le View del layout una volta sola per riga.
     class AtletaViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val tvNome: TextView = itemView.findViewById(R.id.tvNomeAtleta)
         val tvCategoria: TextView = itemView.findViewById(R.id.tvCategoriaAtleta)
@@ -26,7 +26,7 @@ class AtletaAdapter(private var listaAtlete: List<Atleta>) :
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AtletaViewHolder {
-        // "Gonfiamo" (inflate) l'XML della singola riga per trasformarlo in un oggetto View
+        // modifica l'XML della singola riga per trasformarlo in un oggetto View
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_atleta, parent, false)
         return AtletaViewHolder(view)
@@ -35,9 +35,9 @@ class AtletaAdapter(private var listaAtlete: List<Atleta>) :
     @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: AtletaViewHolder, position: Int) {
         val atleta = listaAtlete[position]
-        // 2. Dati di base: Nome, Livello e Categoria
+        // Dati di base: Nome, Livello e Categoria
         holder.tvNome.text = atleta.nome
-        // Uso operatori condizionali per evitare stringhe vuote se il dato manca
+        //operatori condizionali per evitare stringhe vuote se il dato manca
         val livello = atleta.livello.ifEmpty { "Livello ?" }
         val categoria = atleta.categoria.ifEmpty { "Categoria ?" }
         holder.tvCategoria.text = "$livello • $categoria"
@@ -56,13 +56,13 @@ class AtletaAdapter(private var listaAtlete: List<Atleta>) :
         // Controllo se esiste effettivamente una data scritta
         if (atleta.scadenzaCertificato.isNotEmpty() && atleta.scadenzaCertificato != "Nessuna scadenza inserita") {
             try {
-                // Trasformiamo il testo "2024-10-15" in una vera Data calcolabile
+                // Trasformiamo il testo in una vera Data calcolabile
                 val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                 val dataScad = sdf.parse(atleta.scadenzaCertificato)
                 val dataOggi = Date()
 
                 if (dataScad != null) {
-                    // Calcoliamo quanti millisecondi mancano, e li convertiamo in giorni
+                    // Calcola quanti millisecondi mancano, e li convertiamo in giorni
                     val diffMillies = dataScad.time - dataOggi.time
                     val diffGiorni = TimeUnit.DAYS.convert(diffMillies, TimeUnit.MILLISECONDS)
 
@@ -82,7 +82,7 @@ class AtletaAdapter(private var listaAtlete: List<Atleta>) :
 
         // LOGICA DI NAVIGAZIONE AL CLICK
         holder.itemView.setOnClickListener {
-            // Usiamo la classe generata da Safe Args invece del Bundle
+            // Usiamo la classe generata da Safe Args per navigare verso il dettaglio dell'atleta
             val action = GestioneAtleteFragmentDirections.actionGestioneAtleteFragmentToDettaglioAtletaFragment(
                 atletaId = atleta.id,
                 atletaNome = atleta.nome

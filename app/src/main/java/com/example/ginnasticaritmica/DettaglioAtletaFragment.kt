@@ -13,9 +13,10 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
-import androidx.navigation.fragment.navArgs // IMPORTANTE: Import per Safe Args
+import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.ginnasticaritmica.databinding.FragmentDettaglioAtletaBinding
 import com.github.mikephil.charting.data.PieData
@@ -23,11 +24,8 @@ import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Date
 import java.util.Locale
-import androidx.core.graphics.toColorInt
 
 //PANNELLO DI CONTROLLO ATLETA: Integra permessi, CRUD, grafici e Media Streaming (Delegato).
 class DettaglioAtletaFragment : Fragment() {
@@ -42,7 +40,7 @@ class DettaglioAtletaFragment : Fragment() {
     private var atletaId: String? = null
     private var atletaCorrente: Atleta? = null
 
-    // Deleghiamo la riproduzione al nostro Manager esterno
+    // Deleghiamo la riproduzione al nostro Manager della musica
     private lateinit var musicManager: MusicManager
     private var tracceDisponibili: Map<String, String> = emptyMap()
 
@@ -91,7 +89,7 @@ class DettaglioAtletaFragment : Fragment() {
             }
         )
 
-        // Estrazione dati sicura tramite Safe Args (sostituisce il vecchio Bundle)
+        // Estrazione dati sicura tramite Safe Args
         atletaId = args.atletaId
         atletaId?.let { scaricaProfiloAtleta(it) }
 
@@ -151,33 +149,71 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnCaricaMusica.setOnClickListener { mostraDialogSceltaAttrezzoDropbox() }
         impostaBottoniRiproduzione()
 
-        //GESTIONE BOTTONI DIARIO PRESENZE
+        // GESTIONE BOTTONI DIARIO PRESENZE (AGGIORNATA CON CALENDARIO)
         binding.btnAggiungiPresenza.setOnClickListener {
-            val dataOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-            atletaCorrente?.let {
-                val nuovePresenze = it.datePresenze.toMutableList()
-                if (!nuovePresenze.contains(dataOggi)) {
-                    nuovePresenze.add(dataOggi)
-                    it.datePresenze = nuovePresenze
-                    impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
-                    db.collection("Atlete").document(atletaId!!).update("datePresenze", FieldValue.arrayUnion(dataOggi))
-                } else {
-                    Toast.makeText(requireContext(), "Presenza di oggi già registrata!", Toast.LENGTH_SHORT).show()
-                }
-            }
+            mostraDialogSelezioneData(isPresenza = true)
         }
 
         binding.btnAggiungiAssenza.setOnClickListener {
-            val dataOggi = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-            atletaCorrente?.let {
-                val nuoveAssenze = it.dateAssenze.toMutableList()
-                if (!nuoveAssenze.contains(dataOggi)) {
-                    nuoveAssenze.add(dataOggi)
-                    it.dateAssenze = nuoveAssenze
-                    impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
-                    db.collection("Atlete").document(atletaId!!).update("dateAssenze", FieldValue.arrayUnion(dataOggi))
+            mostraDialogSelezioneData(isPresenza = false)
+        }
+    }
+
+    // FUNZIONI PER SCEGLIERE LA DATA DI PRESENZA/ASSENZA
+    private fun mostraDialogSelezioneData(isPresenza: Boolean) {
+        val cal = Calendar.getInstance()
+        val titolo = if (isPresenza) "Scegli data per la Presenza" else "Scegli data per l'Assenza"
+
+        val dialog = DatePickerDialog(requireContext(), { _, year, month, day ->
+            val dataScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
+            aggiungiPresenzaOAssenza(dataScelta, isPresenza)
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+
+        dialog.setTitle(titolo)
+        dialog.show()
+    }
+
+    private fun aggiungiPresenzaOAssenza(dataSelezionata: String, isPresenza: Boolean) {
+        atletaCorrente?.let { atleta ->
+            if (isPresenza) {
+                val nuovePresenze = atleta.datePresenze.toMutableList()
+
+                if (!nuovePresenze.contains(dataSelezionata)) {
+                    nuovePresenze.add(dataSelezionata)
+                    atleta.datePresenze = nuovePresenze
+
+                    // Rimuove un'eventuale assenza registrata per sbaglio nello stesso giorno
+                    atleta.dateAssenze = atleta.dateAssenze.filter { it != dataSelezionata }
+
+                    impostaGrafico(atleta.datePresenze.size, atleta.dateAssenze.size)
+
+                    db.collection("Atlete").document(atletaId!!).update(
+                        "datePresenze", FieldValue.arrayUnion(dataSelezionata),
+                        "dateAssenze", FieldValue.arrayRemove(dataSelezionata)
+                    )
+                    Toast.makeText(requireContext(), "Presenza del $dataSelezionata salvata!", Toast.LENGTH_SHORT).show()
                 } else {
-                    Toast.makeText(requireContext(), "Assenza di oggi già registrata!", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(requireContext(), "Presenza per questa data già registrata!", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                val nuoveAssenze = atleta.dateAssenze.toMutableList()
+
+                if (!nuoveAssenze.contains(dataSelezionata)) {
+                    nuoveAssenze.add(dataSelezionata)
+                    atleta.dateAssenze = nuoveAssenze
+
+                    // Rimuove un'eventuale presenza registrata per sbaglio nello stesso giorno
+                    atleta.datePresenze = atleta.datePresenze.filter { it != dataSelezionata }
+
+                    impostaGrafico(atleta.datePresenze.size, atleta.dateAssenze.size)
+
+                    db.collection("Atlete").document(atletaId!!).update(
+                        "dateAssenze", FieldValue.arrayUnion(dataSelezionata),
+                        "datePresenze", FieldValue.arrayRemove(dataSelezionata)
+                    )
+                    Toast.makeText(requireContext(), "Assenza del $dataSelezionata salvata!", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(requireContext(), "Assenza per questa data già registrata!", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -210,6 +246,7 @@ class DettaglioAtletaFragment : Fragment() {
                     aggiornaIntestazione()
                     impostaGrafico(it.datePresenze.size, it.dateAssenze.size)
 
+                    // CARICAMENTO FOTO
                     if (it.fotoUrl.isNotEmpty()) {
                         try {
                             if (it.fotoUrl.startsWith("http")) {
@@ -267,7 +304,7 @@ class DettaglioAtletaFragment : Fragment() {
     private fun salvaFotoInBase64(bitmap: Bitmap) {
         Toast.makeText(requireContext(), "Elaborazione foto...", Toast.LENGTH_SHORT).show()
 
-        // Chiamo la funzione dal nuovo Singleton
+        // Chiamo la funzione di PhotoManager per convertire l'immagine in base64
         val stringaBase64 = PhotoManager.encodeBitmapToBase64(bitmap)
 
         atletaId?.let { id ->

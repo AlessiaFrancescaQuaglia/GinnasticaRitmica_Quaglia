@@ -219,7 +219,7 @@ class LoginFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        // 6. MEMORY LEAK PREVENTION: Sgancia il binding grafico alla distruzione della View
+        //MEMORY LEAK PREVENTION: Sgancia il binding grafico alla distruzione della View
         _binding = null
     }
 }

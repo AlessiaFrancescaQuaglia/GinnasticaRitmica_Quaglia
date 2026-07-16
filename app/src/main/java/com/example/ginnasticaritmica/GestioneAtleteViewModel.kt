@@ -26,9 +26,10 @@ class GestioneAtleteViewModel : ViewModel() {
         caricaAtleteDalCloud()
     }
 
+
+    // funzione per scaricare la lista di atleti dal database
     private fun caricaAtleteDalCloud() {
         val idAllenatriceAttuale = auth.currentUser?.uid ?: return
-
         atleteListener = db.collection("Atlete")
             .whereEqualTo("idAllenatrice", idAllenatriceAttuale)
             .addSnapshotListener { valore, errore ->
@@ -52,7 +53,7 @@ class GestioneAtleteViewModel : ViewModel() {
         // Uniamo nome e cognome esattamente come li salviamo nel database
         val nomeCompleto = "$nome $cognome"
 
-        // Eseguiamo una "Composite Query" (Query Composta) per cercare corrispondenze esatte su 2 campi
+        // Eseguiamo una "Composite Query" per cercare corrispondenze esatte su 2 campi
         db.collection("Atlete")
             .whereEqualTo("nome", nomeCompleto)
             .whereEqualTo("dataNascita", dataNascita)
@@ -63,7 +64,7 @@ class GestioneAtleteViewModel : ViewModel() {
 
                 if (querySnapshot != null && !querySnapshot.isEmpty) {
 
-                    // --- CASO 1: L'ATLETA ESISTE GIÀ! ---
+                    // L'ATLETA ESISTE GIÀ
                     // Recuperiamo il documento esistente (prendiamo il primo risultato trovato)
                     val documentoEsistente = querySnapshot.documents[0]
                     val idAtletaEsistente = documentoEsistente.id
@@ -88,7 +89,7 @@ class GestioneAtleteViewModel : ViewModel() {
                             _toastMessage.value = "Errore nel trasferimento: ${e.message}"
                         }
                 } else {
-                    // --- CASO 2: L'ATLETA NON ESISTE ---
+                    // L'ATLETA NON ESISTE
                     creaNuovoDocumentoAtleta(nome, cognome, livello, dataNascita, dataCertificato, emailPulita, idAllenatriceAttuale)
                 }
             }

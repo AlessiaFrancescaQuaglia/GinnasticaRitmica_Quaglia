@@ -34,7 +34,7 @@ class HomeInfoFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        //Annullo il binding. In Android, la "View" del Fragment viene distrutta prima del Fragment stesso; non annullarlo intaserebbe la RAM.
+        //Annullo il binding. In Android, la "View" del Fragment viene distrutta prima del Fragment stesso
         _binding = null
     }
 }

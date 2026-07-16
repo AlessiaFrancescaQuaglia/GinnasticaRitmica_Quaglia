@@ -5,13 +5,12 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.net.toUri
 
-//Fa da "ponte" tra i dati grezzi (Mappa) e la grafica scorrevole.
+//Fa da "ponte" tra i dati grezzi (Mappa) e la grafica
 class MusicaAdapter(
     private val dati: Map<String, String>, // Mappa Attrezzo -> Link
     private val context: android.content.Context
 ) : androidx.recyclerview.widget.RecyclerView.Adapter<MusicaAdapter.ViewHolder>() {
 
-    //La RecyclerView legge i dati per "posizione" (0, 1, 2...).
     // Dato che le Mappe non hanno un ordine numerico, estraggo le chiavi (i nomi degli attrezzi) in una Lista.
     private val chiavi = dati.keys.toList()
 

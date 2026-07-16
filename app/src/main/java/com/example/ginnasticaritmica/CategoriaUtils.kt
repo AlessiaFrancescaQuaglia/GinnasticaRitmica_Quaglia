@@ -2,11 +2,10 @@ package com.example.ginnasticaritmica
 
 import java.util.Calendar
 
-// 1. SINGLETON OBJECT: Creiamo un oggetto unico (Utils) per centralizzare la logica di business.
-// Applicazione perfetta del principio SRP (Single Responsibility Principle) e DRY (Don't Repeat Yourself).
+//SINGLETON OBJECT: Creiamo un oggetto unico per centralizzare la logica di calcolo della categoria.
 object CategoriaUtils {
 
-    // Calcolo preciso dell'età considerando anno, mese e giorno (usato dal DatePickerDialog)
+    // Calcolo preciso dell'età considerando anno, mese e giorno
     fun calcolaCategoria(annoNascita: Int, meseNascita: Int, giornoNascita: Int): String {
         val cal = Calendar.getInstance()
         val annoCorrente = cal.get(Calendar.YEAR)
@@ -21,7 +20,7 @@ object CategoriaUtils {
         return determinaNomeCategoria(eta)
     }
 
-    // Calcolo a partire da una stringa ISO "YYYY-MM-DD" (usato dal ViewModel)
+    // Calcolo a partire da una stringa data in formato ISO
     fun calcolaCategoriaDaStringa(dataIso: String): String {
         return try {
             val parts = dataIso.split("-")
@@ -36,7 +35,7 @@ object CategoriaUtils {
         }
     }
 
-    // Mappatura centralizzata Età -> Categoria
+    // Mappatura Età -> Categoria
     private fun determinaNomeCategoria(eta: Int): String {
         return when {
             eta < 8 -> "Pre-agonismo (< 8 anni)"

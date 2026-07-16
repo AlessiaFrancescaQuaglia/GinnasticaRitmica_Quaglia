@@ -23,12 +23,12 @@ class CoachDashboardFragment : Fragment() {
 
     private lateinit var binding: FragmentCoachDashboardBinding
     private val viewModel: CoachViewModel by activityViewModels()
-    // 1.ActivityViewModels: Sfruttiamo il ViewModel dell'Activity madre. Così, se cambiamo schermata e torniamo qui,
-    // i dati statistici sono già pronti e non dobbiamo ricaricarli
+    // ActivityViewModels: Sfrutta il ViewModel dell'Activity madre. Così, se si cambia schermata e si ritorna a quella precedente
+    // i dati statistici sono già pronti e non sono da ricaricare
     private val db = FirebaseFirestore.getInstance()
 
-    // Dichiariamo 3 variabili ListenerRegistration.
-    // Ognuna serve a memorizzare un "tubo" aperto verso Firebase.
+    // Dichiaro 3 variabili ListenerRegistration.
+    // Ognuna serve a memorizzare l'ascolto del DB.
     private var allenatriceListener: ListenerRegistration? = null
     private var gareListener: ListenerRegistration? = null
     private var atleteListener: ListenerRegistration? = null
@@ -60,7 +60,7 @@ class CoachDashboardFragment : Fragment() {
 
         // ATTIVAZIONE NOTIFICHE SOLO PER ALLENATRICE
         // Questo timer si attiva SOLO quando l'allenatrice entra nel suo pannello
-        val controlloScadenzeRequest = androidx.work.PeriodicWorkRequestBuilder<ScadenzaWorker>(1, TimeUnit.MINUTES).build()
+        val controlloScadenzeRequest = androidx.work.PeriodicWorkRequestBuilder<ScadenzaWorker>(1, TimeUnit.DAYS).build()
 
         androidx.work.WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
             "ControlloScadenzeGiornaliero",
@@ -105,11 +105,11 @@ class CoachDashboardFragment : Fragment() {
                 }
                 // Logout logico: torna alla pagina di Login "svuotando" lo stack
                 R.id.nav_logout -> {
-                    // 1. Facciamo scollegare fisicamente l'account Google e Firebase
+                    //scollega fisicamente l'account Google e Firebase
                     com.firebase.ui.auth.AuthUI.getInstance()
                         .signOut(requireContext())
                         .addOnCompleteListener {
-                            // 2. Solo quando ha finito di scollegarsi, torniamo alla pagina di Login
+                            //quando ha finito di scollegarsi, ritornas alla pagina di Login
                             findNavController().navigateUp()
                         }
                 }
@@ -118,7 +118,7 @@ class CoachDashboardFragment : Fragment() {
             true
         }
 
-        // Avviamo l'unica funzione che carica tutti i dati della Dashboard!
+        // Avvio della funzione che carica tutti i dati della Dashboard
         caricaRiepilogoDashboard()
     }
 
@@ -153,7 +153,7 @@ class CoachDashboardFragment : Fragment() {
                         return@addSnapshotListener
                     }
 
-                    // Aggiorna il numero totale delle TUE atlete
+                    // Aggiorna il numero totale delle atlete dell'allenatice loggata
                     binding.tvContatoreAtlete.text = snapshot.size().toString()
 
                     val atleteCritiche = mutableListOf<String>()

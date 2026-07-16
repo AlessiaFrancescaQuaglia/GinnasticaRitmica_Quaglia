@@ -29,7 +29,7 @@ class ListaGareFragment : Fragment() {
     private lateinit var adapter: GareAdapter
     private val listaGare = mutableListOf<Gara>()
 
-    // Variabile per "spegnere" l'ascolto di Firebase quando usciamo dalla pagina
+    // Variabile per spegnere l'ascolto di Firebase quando usciamo dalla pagina
     private var garaListener: ListenerRegistration? = null
 
     override fun onCreateView(
@@ -43,9 +43,9 @@ class ListaGareFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Passo un blocco di codice (la navigazione) direttamente nell'Adapter
+        // Passo un blocco di codice direttamente nell'Adapter
         adapter = GareAdapter(listaGare) { garaSelezionata ->
-            // USIAMO SAFE ARGS AL POSTO DEL BUNDLE!
+            // USIAMO SAFE ARGS PER PASSARE L'ID DELLA GARA
             val action = ListaGareFragmentDirections.actionListaGareFragmentToIscrizioniGaraFragment(
                 garaId = garaSelezionata.id
             )
@@ -128,7 +128,7 @@ class ListaGareFragment : Fragment() {
                 }.show()
         }
 
-        // (Stessa logica del Multi-Choice per Categorie e Attrezzi)
+        //Stessa logica del multiscelta per Categorie e Attrezzi
         tvCategorie.setOnClickListener {
             val arrayCat = arrayOf("Allieve 1", "Allieve 2", "Allieve 3", "Allieve 4", "Allieve 5 – Prejunior", "Junior 1", "Junior 2", "Senior 1", "Senior 2", "Senior 3")
             val checked = BooleanArray(arrayCat.size)
@@ -161,7 +161,7 @@ class ListaGareFragment : Fragment() {
 
                 if (nome.isNotEmpty() && dataScelta.isNotEmpty()) {
 
-                    //Crea un ID univoco universale, garantendo che due gare non possano mai sovrascriversi a vicenda sul server.
+                    //Crea un ID univoco universale, garantendo che due gare non possano mai sovrascriversi a vicenda
                     val idGara = UUID.randomUUID().toString()
 
                     val nuovaGara = Gara(

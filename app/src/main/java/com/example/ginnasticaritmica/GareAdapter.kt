@@ -8,7 +8,7 @@ import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 
-// Passo una funzione come parametro (onIscrizioniClick) per delegare il click al Fragment senza usare interfacce complesse.
+// Passo una funzione come parametro per delegare il click al Fragment
 class GareAdapter(
     private val listaGare: List<Gara>,
     private val onIscrizioniClick: (Gara) -> Unit
@@ -26,6 +26,7 @@ class GareAdapter(
         return GaraViewHolder(view)
     }
 
+
     @SuppressLint("SetTextI18n")
     override fun onBindViewHolder(holder: GaraViewHolder, position: Int) {
         val gara = listaGare[position]
@@ -33,7 +34,7 @@ class GareAdapter(
         holder.tvNome.text = gara.nome
         holder.tvDataLuogo.text = "📅 ${gara.data} - 📍 ${gara.luogo}"
 
-        // Uso 'joinToString()' per convertire rapidamente una lista in una stringa separata da virgole, evitando di scrivere cicli for manuali.
+        // Uso 'joinToString()' per convertire una lista in una stringa separata da virgole, evitando di scrivere cicli for manuali.
         val riassuntoLivelli = if(gara.livelliAmmessi.isNotEmpty()) gara.livelliAmmessi.joinToString() else "Tutti"
         val riassuntoCategorie = if(gara.categorieAmmesse.isNotEmpty()) gara.categorieAmmesse.joinToString() else "Tutte"
 

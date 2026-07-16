@@ -32,6 +32,7 @@ class ScadenzaWorker(context: Context, params: WorkerParameters) : Worker(contex
             val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
             val dataOggi = Date()
 
+            // Ciclo per controllare ogni singola atleta trovata e valutare le scadenze dei certificati
             for (documento in snapshot.documents) {
                 val scadenza = documento.getString("scadenzaCertificato") ?: ""
                 if (scadenza.isNotEmpty() && scadenza != "Nessuna scadenza inserita") {

@@ -33,8 +33,8 @@ class ProfiloAllenatriceFragment : Fragment() {
         if (uri != null) {
             pdfSelezionatoUri = uri
 
-            // Chiedo ad Android il permesso "permanente" di leggere questo file.
-            // Senza questo, se chiudo l'app e la riapro, l'URI salvato darebbe un errore di sicurezza
+            // Chiedo ad Android il permesso di leggere l'URI
+            // se chiudo l'app e la riapro senza questo permesso permanente, l'app crasha
             requireContext().contentResolver.takePersistableUriPermission(
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
@@ -81,7 +81,7 @@ class ProfiloAllenatriceFragment : Fragment() {
                     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     startActivity(intent)
                 } catch (_: Exception) {
-                    // 5. EXCEPTION HANDLING: Previene il crash se il telefono non ha lettori PDF installati
+                    // Previene il crash se il telefono non ha lettori PDF installati
                     Toast.makeText(requireContext(), "Nessun lettore PDF installato sul dispositivo", Toast.LENGTH_LONG).show()
                 }
             }
@@ -135,7 +135,7 @@ class ProfiloAllenatriceFragment : Fragment() {
             datiAggiornati["uriTesseraPdf"] = pdfSelezionatoUri.toString()
         }
 
-        // 6. UPSERT (Update/Insert): Scrittura intelligente su Firestore
+        //UPSERT (Update/Insert): Se il documento esiste già, viene aggiornato, altrimenti viene creato
         db.collection("Allenatrici").document(userId)
             .set(datiAggiornati, SetOptions.merge())
             .addOnSuccessListener {

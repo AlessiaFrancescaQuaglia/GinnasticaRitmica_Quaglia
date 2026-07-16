@@ -49,7 +49,7 @@ class IscrizioniGaraFragment : Fragment() {
         val garaId = args.garaId
         if (garaId.isEmpty()) return
 
-        // Impostiamo la lista in verticale
+        // Impostiamo la lista delle atlete da iscrivere
         binding.rvAtleteIscrizioni.layoutManager = LinearLayoutManager(requireContext())
 
         //Scarica e aggiorna i dati della gara in tempo reale
@@ -114,7 +114,7 @@ class IscrizioniGaraFragment : Fragment() {
         // Controlla se l'atleta era già iscritta a questa gara in precedenza
         val giaIscritti = gara.atleteIscritte[atleta.id] ?: emptyList()
 
-        // Array di booleani (true/false) per spuntare in automatico gli attrezzi già scelti
+        // Array di booleani per spuntare in automatico gli attrezzi già scelti
         val checkedItems = BooleanArray(attrezziPossibili.size) { i ->
             val presente = giaIscritti.contains(attrezziPossibili[i])
             if (presente) attrezziSelezionati.add(attrezziPossibili[i])
@@ -134,7 +134,7 @@ class IscrizioniGaraFragment : Fragment() {
                 //Creiamo una mappa modificabile per non corrompere i dati originali
                 val nuovaMappa = gara.atleteIscritte.toMutableMap()
 
-                // Se ha tolto tutte le spunte, la disiscriviamo (rimuovendo il suo ID)
+                // Se ha tolto tutte le spunte, la disiscriviamo rimuovendo il suo ID
                 if (attrezziSelezionati.isEmpty()) {
                     nuovaMappa.remove(atleta.id)
                 } else {
@@ -152,7 +152,7 @@ class IscrizioniGaraFragment : Fragment() {
     // INNER CLASS ADAPTER: "inner" le permette di leggere le variabili del Fragment esterno
     inner class IscrizioniAdapter : RecyclerView.Adapter<IscrizioniAdapter.ViewHolder>() {
 
-        // memorizza le view per evitare continui findViewById pesanti per la RAM
+        // memorizza le view per evitare continui findViewById pesanti
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
             val tvNome: TextView = view.findViewById(R.id.tvNomeAtletaIscrizione)
             val tvDettagli: TextView = view.findViewById(R.id.tvDettagliAtletaIscrizione)
@@ -165,6 +165,8 @@ class IscrizioniGaraFragment : Fragment() {
             return ViewHolder(view)
         }
 
+
+        //funzione che viene chiamata per ogni elemento della lista
         @SuppressLint("SetTextI18n")
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val atleta = atleteCompatibili[position]
@@ -177,7 +179,7 @@ class IscrizioniGaraFragment : Fragment() {
             // Controlliamo la mappa delle iscrizioni tramite l'ID dell'atleta
             val attrezziIscritti = gara.atleteIscritte[atleta.id]
 
-            // se la lista attrezzi dell'atleta NON è vuota, è iscritta
+            // se la lista attrezzi dell'atleta non è vuota, è iscritta
             if (!attrezziIscritti.isNullOrEmpty()) {
                 holder.tvStato.text = "Iscritta: ${attrezziIscritti.joinToString()}"
                 holder.tvStato.setTextColor("#008577".toColorInt())

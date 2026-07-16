@@ -9,7 +9,7 @@
         android:layout_height="match_parent"
         android:background="@color/sfondo_app">
 
-        <!-- BANNER VIOLA -->
+
         <LinearLayout
             android:id="@+id/bannerViola"
             android:layout_width="match_parent"

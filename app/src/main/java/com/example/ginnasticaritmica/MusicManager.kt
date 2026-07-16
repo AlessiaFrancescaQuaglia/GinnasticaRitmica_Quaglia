@@ -5,7 +5,7 @@ import android.media.AudioAttributes
 import android.media.MediaPlayer
 import androidx.core.net.toUri
 
-// 2. MEDIA MANAGER: Estrazione della logica hardware (Audio) dal Fragment visivo.
+//MEDIA MANAGER: Estrazione della logica hardware (Audio) dal Fragment visivo.
 class MusicManager(
     private val context: Context,
     private val onPrepared: () -> Unit,

@@ -6,7 +6,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 // Estendendo ViewModel(), diciamo ad Android che questa classe deve "sopravvivere"
-// alla distruzione del Fragment (es. Quando si ruota il telefono o si cambia pagina).
+// alla distruzione del Fragment (es. quando si ruota il telefono o si cambia pagina).
 class CoachViewModel : ViewModel() {
 
     // Usiamo MutableLiveData per poter inserire nuovi valori.
@@ -19,7 +19,7 @@ class CoachViewModel : ViewModel() {
     // Lista reale che conterrà le atlete scaricate dal Cloud
     val atleteList = MutableLiveData<List<Atleta>>(emptyList())
 
-    // Istanze di Firebase (Auth per l'utente, Firestore per il database)
+    // Istanze di Firebase
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseFirestore.getInstance()
 
@@ -30,7 +30,7 @@ class CoachViewModel : ViewModel() {
     }
 
     private fun caricaDatiAllenatrice() {
-        // Se non c'è un utente loggato, la funzione si ferma qui (return) per evitare crash.
+        // Se non c'è un utente loggato, la funzione si ferma qui per evitare crash.
         val utenteCorrente = auth.currentUser ?: return
         val uid = utenteCorrente.uid
 
