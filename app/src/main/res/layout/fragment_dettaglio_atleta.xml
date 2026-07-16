@@ -81,10 +81,10 @@
                     android:id="@+id/tvCategoriaDettaglio"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="24dp"
                     android:text="Livello • Categoria"
-                    android:textSize="16sp"
-                    android:textColor="@color/testo_chiaro"
-                    android:layout_marginBottom="24dp"/>
+                    android:textColor="#757575"
+                    android:textSize="16sp" />
 
                 <!-- BOX 1: Profilo Tecnico (Stile Dashboard) -->
                 <LinearLayout
@@ -166,10 +166,10 @@
                         android:id="@+id/tvGruppoScelto"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
                         android:text="Gruppo: Non assegnato"
-                        android:textStyle="bold"
-                        android:textColor="@color/verde_acqua_bottoni"
-                        android:layout_marginTop="8dp"/>
+                        android:textColor="#009688"
+                        android:textStyle="bold" />
                     <Button
                         android:id="@+id/btnModificaGruppo"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"

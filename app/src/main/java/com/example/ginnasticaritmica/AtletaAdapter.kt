@@ -2,18 +2,17 @@ package com.example.ginnasticaritmica
 
 import android.annotation.SuppressLint
 import android.content.res.ColorStateList
-import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.graphics.toColorInt
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.RecyclerView
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import androidx.core.graphics.toColorInt
 
 class AtletaAdapter(private var listaAtlete: List<Atleta>) :
     RecyclerView.Adapter<AtletaAdapter.AtletaViewHolder>() {

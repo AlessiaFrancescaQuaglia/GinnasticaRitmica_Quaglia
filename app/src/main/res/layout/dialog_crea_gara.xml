@@ -22,22 +22,22 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:autofillHints=""
+        android:background="@android:drawable/editbox_background"
         android:hint="Nome della Gara (es. Regionale LA)"
         android:textColor="@color/testo_titoli"
-        android:textColorHint="@color/testo_chiaro"
-        android:background="@android:drawable/editbox_background"
+        android:textColorHint="#757575"
         tools:ignore="TextFields" />
 
     <EditText
         android:id="@+id/etLuogoGara"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:autofillHints=""
-        android:hint="Luogo (es. Palazzetto dello Sport)"
         android:layout_marginTop="8dp"
-        android:textColor="@color/testo_titoli"
-        android:textColorHint="@color/testo_chiaro"
+        android:autofillHints=""
         android:background="@android:drawable/editbox_background"
+        android:hint="Luogo (es. Palazzetto dello Sport)"
+        android:textColor="@color/testo_titoli"
+        android:textColorHint="#757575"
         tools:ignore="TextFields" />
 
     <TextView

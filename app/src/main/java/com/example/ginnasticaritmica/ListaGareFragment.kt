@@ -87,6 +87,7 @@ class ListaGareFragment : Fragment() {
     }
 
     //UI GENERATOR: Costruzione dinamica dell'interfaccia di inserimento
+    @SuppressLint("SetTextI18n")
     private fun mostraDialogCreaGara() {
         val dialogView = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_crea_gara, null)
 
