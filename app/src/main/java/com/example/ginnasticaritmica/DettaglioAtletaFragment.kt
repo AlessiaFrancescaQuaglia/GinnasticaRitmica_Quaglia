@@ -15,6 +15,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.navigation.fragment.navArgs // IMPORTANTE: Import per Safe Args
 import com.bumptech.glide.Glide
 import com.example.ginnasticaritmica.databinding.FragmentDettaglioAtletaBinding
 import com.github.mikephil.charting.data.PieData
@@ -33,6 +34,9 @@ class DettaglioAtletaFragment : Fragment() {
 
     private var _binding: FragmentDettaglioAtletaBinding? = null
     private val binding get() = _binding!!
+
+    // Inizializzazione Safe Args
+    private val args: DettaglioAtletaFragmentArgs by navArgs()
 
     private val db = FirebaseFirestore.getInstance()
     private var atletaId: String? = null
@@ -69,7 +73,7 @@ class DettaglioAtletaFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // NIZIALIZZAZIONE MUSIC MANAGER
+        // INIZIALIZZAZIONE MUSIC MANAGER
         musicManager = MusicManager(
             context = requireContext(),
             onPrepared = {
@@ -87,12 +91,12 @@ class DettaglioAtletaFragment : Fragment() {
             }
         )
 
-        // Estrazione dati dal Bundle (ricarico dal DB usando l'ID)
-        atletaId = arguments?.getString("atletaId")
+        // Estrazione dati sicura tramite Safe Args (sostituisce il vecchio Bundle)
+        atletaId = args.atletaId
         atletaId?.let { scaricaProfiloAtleta(it) }
 
         // Mappatura modifiche anagrafiche, tecniche e account
-        binding.tvNomeDettaglio.text = arguments?.getString("atletaNome")
+        binding.tvNomeDettaglio.text = args.atletaNome
 
         // GESTIONE BOTTONI
         binding.btnTornaIndietro.setOnClickListener { findNavController().navigateUp() }

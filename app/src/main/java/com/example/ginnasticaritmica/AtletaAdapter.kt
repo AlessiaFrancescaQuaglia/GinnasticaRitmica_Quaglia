@@ -83,17 +83,13 @@ class AtletaAdapter(private var listaAtlete: List<Atleta>) :
 
         // LOGICA DI NAVIGAZIONE AL CLICK
         holder.itemView.setOnClickListener {
-            // Il blocco è formato da due righe:ID e Nome dell'atleta
-            // per far sapere alla prossima pagina di chi deve scaricare i dati completi.
-            val bundle = Bundle().apply {
-                putString("atletaId", atleta.id)
-                putString("atletaNome", atleta.nome)
-            }
-            // Uso il Navigation Component per muovermi
-            it.findNavController().navigate(
-                R.id.action_gestioneAtleteFragment_to_dettaglioAtletaFragment,
-                bundle
+            // Usiamo la classe generata da Safe Args invece del Bundle
+            val action = GestioneAtleteFragmentDirections.actionGestioneAtleteFragmentToDettaglioAtletaFragment(
+                atletaId = atleta.id,
+                atletaNome = atleta.nome
             )
+            // Uso il Navigation Component per muovermi passando l'azione sicura
+            it.findNavController().navigate(action)
         }
     }
 

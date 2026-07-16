@@ -5,7 +5,9 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.findNavController
 import com.example.ginnasticaritmica.databinding.FragmentAthleteDashboardBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -35,7 +37,7 @@ class AthleteDashboardFragment : Fragment() {
         val emailAtletaLoggata = FirebaseAuth.getInstance().currentUser?.email
 
         if (emailAtletaLoggata != null) {
-            // 2. Cerchiamo nella collezione "Atlete" il documento che ha questa email. addSnapshotListener mi permette di non dover ricaricare la pagina.
+            //cerca nella collezione "Atlete" il documento che ha questa email. addSnapshotListener permette di non dover ricaricare la pagina.
             //Se l'allenatrice cambia la musica sul DB, la ginnasta vedrà l'aggiornamento istantaneamente sul telefono
             atletaListener = db.collection("Atlete")
                 .whereEqualTo("email", emailAtletaLoggata.lowercase())
@@ -47,7 +49,7 @@ class AthleteDashboardFragment : Fragment() {
 
                     if (snapshot != null && !snapshot.isEmpty) {
 
-                        //  Nascondiamo il testo "Controllo della tua scheda in corso..." se è presente la scheda
+                        //  Nasconde nil testo "Controllo della tua scheda in corso..." se è presente la scheda
                         binding.tvStatoMusica.visibility = View.GONE
 
                         // Prendo il primo documento trovato
@@ -55,12 +57,12 @@ class AthleteDashboardFragment : Fragment() {
                         // Estraggo la mappa (Attrezzo -> Link).
                         val tracce = documento.get("tracceMusicali") as? Map<String, String>
 
-                        // 3. Gestione dinamica dell'interfaccia. Se la mappa contiene dati, mostro la RecyclerView.
-                        // Se è vuota, nascondo la lista per non mostrare spazi vuoti nell'app.
+                        //Gestione dinamica dell'interfaccia. Se la mappa contiene dati, mostra la RecyclerView.
+                        // Se è vuota, nasconde la lista per non mostrare spazi vuoti nell'app.
                         if (!tracce.isNullOrEmpty()) {
                             binding.rvMusiche.visibility = View.VISIBLE
                             binding.rvMusiche.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(requireContext())
-                            // Passo la mappa al MusicaAdapter che disegnerà le righe
+                            // Passa la mappa al MusicaAdapter che disegnerà le righe
                             binding.rvMusiche.adapter = MusicaAdapter(tracce, requireContext())
                         } else {
                             binding.rvMusiche.visibility = View.GONE
@@ -69,13 +71,22 @@ class AthleteDashboardFragment : Fragment() {
                             binding.tvStatoMusica.visibility = View.VISIBLE
                         }
                     } else {
-                        // SCHEDA NON TROVATA!
-                        // Cambiamo il testo per avvisare la ginnasta invece di lasciarla bloccata nel dubbio
+                        // SCHEDA NON TROVATA
+                        // Cambia il testo per avvisare la ginnasta invece di lasciare tutto bloccato
                         binding.tvStatoMusica.text = "Scheda non trovata.\nL'allenatrice non ha ancora collegato la tua email ($emailAtletaLoggata)."
                         binding.tvStatoMusica.visibility = View.VISIBLE
                         binding.rvMusiche.visibility = View.GONE
                     }
                 }
+        }
+        // GESTIONE LOGOUT
+        binding.btnLogoutAtleta.setOnClickListener {
+            //chiusura sessione su Firebase
+            FirebaseAuth.getInstance().signOut()
+            Toast.makeText(requireContext(), "Disconnessione effettuata", Toast.LENGTH_SHORT).show()
+
+            // Navigazione verso la schermata iniziale
+            findNavController().navigate(R.id.homeInfoFragment)
         }
     }
 

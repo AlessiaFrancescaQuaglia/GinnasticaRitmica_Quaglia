@@ -10,6 +10,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.navigation.fragment.navArgs // IMPORTANTE: Import per Safe Args
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.ginnasticaritmica.databinding.FragmentIscrizioniGareBinding
@@ -23,6 +24,9 @@ class IscrizioniGaraFragment : Fragment() {
     // ViewBinding: accesso sicuro agli elementi grafici
     private var _binding: FragmentIscrizioniGareBinding? = null
     private val binding get() = _binding!!
+
+    // Inizializzazione Safe Args
+    private val args: IscrizioniGaraFragmentArgs by navArgs()
 
     // Connessione al database Firestore
     private val db = FirebaseFirestore.getInstance()
@@ -41,8 +45,9 @@ class IscrizioniGaraFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Recuperiamo l'ID della gara dalla pagina precedente
-        val garaId = arguments?.getString("garaId") ?: return
+        // Recuperiamo l'ID della gara dalla pagina precedente tramite Safe Args
+        val garaId = args.garaId
+        if (garaId.isEmpty()) return
 
         // Impostiamo la lista in verticale
         binding.rvAtleteIscrizioni.layoutManager = LinearLayoutManager(requireContext())

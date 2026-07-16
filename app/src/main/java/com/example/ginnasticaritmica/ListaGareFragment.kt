@@ -43,12 +43,13 @@ class ListaGareFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        //Passo un blocco di codice (la navigazione) direttamente nell'Adapter
+        // Passo un blocco di codice (la navigazione) direttamente nell'Adapter
         adapter = GareAdapter(listaGare) { garaSelezionata ->
-            val bundle = Bundle()
-            bundle.putString("garaId", garaSelezionata.id)
-            androidx.navigation.fragment.NavHostFragment.findNavController(this)
-                .navigate(R.id.iscrizioniGaraFragment, bundle)
+            // USIAMO SAFE ARGS AL POSTO DEL BUNDLE!
+            val action = ListaGareFragmentDirections.actionListaGareFragmentToIscrizioniGaraFragment(
+                garaId = garaSelezionata.id
+            )
+            findNavController().navigate(action)
         }
 
         binding.rvListaGare.layoutManager = LinearLayoutManager(requireContext())

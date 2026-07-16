@@ -58,7 +58,25 @@ class CoachDashboardFragment : Fragment() {
             }
         }
 
-// Invece di impostare a mano i testi, agganciamo l'intero layout direttamente al ViewModel. Quando il ViewModel cambia, l'XML si aggiorna da solo!
+        // ATTIVAZIONE NOTIFICHE SOLO PER ALLENATRICE
+        // Questo timer si attiva SOLO quando l'allenatrice entra nel suo pannello
+        val controlloScadenzeRequest = androidx.work.PeriodicWorkRequestBuilder<ScadenzaWorker>(1, TimeUnit.MINUTES).build()
+
+        androidx.work.WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
+            "ControlloScadenzeGiornaliero",
+            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            controlloScadenzeRequest
+        )
+
+        // Test immediato diu debug
+        // val testImmediato = androidx.work.OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
+        //androidx.work.WorkManager.getInstance(requireContext()).enqueueUniqueWork(
+        //    "TestImmediato",
+        //    androidx.work.ExistingWorkPolicy.REPLACE,
+        //    testImmediato
+        //)
+
+        // Invece di impostare a mano i testi,l'intero layout viene agganciato direttamente al ViewModel. Quando il ViewModel cambia, l'XML si aggiorna da solo
         binding.viewModel = viewModel
         binding.lifecycleOwner = viewLifecycleOwner
 
@@ -85,9 +103,15 @@ class CoachDashboardFragment : Fragment() {
                 R.id.presenzeFragment -> {
                     findNavController().navigate(R.id.presenzeFragment)
                 }
-                // Logout logico: torniamo alla pagina di Login "svuotando" lo stack
+                // Logout logico: torna alla pagina di Login "svuotando" lo stack
                 R.id.nav_logout -> {
-                    findNavController().navigateUp()
+                    // 1. Facciamo scollegare fisicamente l'account Google e Firebase
+                    com.firebase.ui.auth.AuthUI.getInstance()
+                        .signOut(requireContext())
+                        .addOnCompleteListener {
+                            // 2. Solo quando ha finito di scollegarsi, torniamo alla pagina di Login
+                            findNavController().navigateUp()
+                        }
                 }
             }
             binding.drawerLayout.closeDrawer(GravityCompat.START)

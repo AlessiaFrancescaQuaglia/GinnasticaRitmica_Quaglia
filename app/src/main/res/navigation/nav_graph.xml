@@ -3,14 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/nav_graph"
-    app:startDestination="@id/homeInfoFragment"> <fragment
-    android:id="@+id/homeInfoFragment"
-    android:name="com.example.ginnasticaritmica.HomeInfoFragment"
-    android:label="HomeInfoFragment" >
-    <action
-        android:id="@+id/action_homeInfoFragment_to_loginFragment"
-        app:destination="@id/loginFragment" />
-</fragment>
+    app:startDestination="@id/homeInfoFragment">
+
+    <fragment
+        android:id="@+id/homeInfoFragment"
+        android:name="com.example.ginnasticaritmica.HomeInfoFragment"
+        android:label="HomeInfoFragment" >
+        <action
+            android:id="@+id/action_homeInfoFragment_to_loginFragment"
+            app:destination="@id/loginFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/loginFragment"
@@ -62,7 +64,14 @@
     <fragment
         android:id="@+id/dettaglioAtletaFragment"
         android:name="com.example.ginnasticaritmica.DettaglioAtletaFragment"
-        android:label="DettaglioAtletaFragment" />
+        android:label="DettaglioAtletaFragment" >
+        <argument
+            android:name="atletaId"
+            app:argType="string" />
+        <argument
+            android:name="atletaNome"
+            app:argType="string" />
+    </fragment>
 
     <fragment
         android:id="@+id/presenzeFragment"
@@ -83,19 +92,26 @@
         tools:layout="@layout/fragment_athlete_dashboard">
     </fragment>
 
-
-
     <fragment
         android:id="@+id/listaGareFragment"
         android:name="com.example.ginnasticaritmica.ListaGareFragment"
         android:label="Gare Programmate"
-        tools:layout="@layout/fragment_lista_gare" />
+        tools:layout="@layout/fragment_lista_gare" >
+        <action
+            android:id="@+id/action_listaGareFragment_to_iscrizioniGaraFragment"
+            app:destination="@id/iscrizioniGaraFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/iscrizioniGaraFragment"
         android:name="com.example.ginnasticaritmica.IscrizioniGaraFragment"
         android:label="Gestione Iscrizioni"
-        tools:layout="@layout/fragment_iscrizioni_gare" />
+        tools:layout="@layout/fragment_iscrizioni_gare" >
+        <argument
+            android:name="garaId"
+            app:argType="string" />
+    </fragment>
+
     <fragment
         android:id="@+id/profiloAllenatriceFragment"
         android:name="com.example.ginnasticaritmica.ProfiloAllenatriceFragment"

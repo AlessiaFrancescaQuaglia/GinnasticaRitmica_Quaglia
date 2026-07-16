@@ -180,7 +180,7 @@ class LoginFragment : Fragment() {
         //TASTO: ACCEDI CON GOOGLE
         binding.btnGoogle.setOnClickListener {
             val providers = arrayListOf(AuthUI.IdpConfig.GoogleBuilder().build())
-            val signInIntent = AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).build()
+            val signInIntent = AuthUI.getInstance().createSignInIntentBuilder().setAvailableProviders(providers).setIsSmartLockEnabled(false).build()
             signInLauncher.launch(signInIntent)
         }
     }

@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "639403683299-js04hl5kbcv32hpg2jlnfphp925ce0e8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ginnasticaritmica",
+            "certificate_hash": "8149200f50f2afcbb764e912d012d3a7d98c3ba8"
+          }
+        },
+        {
           "client_id": "639403683299-itt5sq0ag61lp3476rvo6ii95td06s64.apps.googleusercontent.com",
           "client_type": 3
         }
