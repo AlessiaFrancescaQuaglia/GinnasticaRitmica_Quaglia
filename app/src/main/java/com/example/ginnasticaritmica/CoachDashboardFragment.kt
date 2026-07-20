@@ -69,12 +69,12 @@ class CoachDashboardFragment : Fragment() {
         )
 
         // Test immediato diu debug
-        // val testImmediato = androidx.work.OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
-        //androidx.work.WorkManager.getInstance(requireContext()).enqueueUniqueWork(
-        //    "TestImmediato",
-        //    androidx.work.ExistingWorkPolicy.REPLACE,
-        //    testImmediato
-        //)
+        val testImmediato = androidx.work.OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
+        androidx.work.WorkManager.getInstance(requireContext()).enqueueUniqueWork(
+        "TestImmediato",
+        androidx.work.ExistingWorkPolicy.REPLACE,
+        testImmediato
+        )
 
         // Invece di impostare a mano i testi,l'intero layout viene agganciato direttamente al ViewModel. Quando il ViewModel cambia, l'XML si aggiorna da solo
         binding.viewModel = viewModel
@@ -105,6 +105,9 @@ class CoachDashboardFragment : Fragment() {
                 }
                 // Logout logico: torna alla pagina di Login "svuotando" lo stack
                 R.id.nav_logout -> {
+                    //spengo i timer in background
+                    androidx.work.WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeGiornaliero")
+                    androidx.work.WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeImmediato")
                     //scollega fisicamente l'account Google e Firebase
                     com.firebase.ui.auth.AuthUI.getInstance()
                         .signOut(requireContext())

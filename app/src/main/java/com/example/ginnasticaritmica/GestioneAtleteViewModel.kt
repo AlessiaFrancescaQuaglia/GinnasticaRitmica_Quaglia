@@ -57,6 +57,7 @@ class GestioneAtleteViewModel : ViewModel() {
         db.collection("Atlete")
             .whereEqualTo("nome", nomeCompleto)
             .whereEqualTo("dataNascita", dataNascita)
+            .whereEqualTo("idAllenatrice", idAllenatriceAttuale)
             .get()
             .addOnSuccessListener { querySnapshot ->
 
