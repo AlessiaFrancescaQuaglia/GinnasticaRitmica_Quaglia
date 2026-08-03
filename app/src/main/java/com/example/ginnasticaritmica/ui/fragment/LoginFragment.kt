@@ -1,5 +1,6 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
+import android.app.Activity
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -7,6 +8,7 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentLoginBinding
 import com.firebase.ui.auth.AuthUI
 import com.firebase.ui.auth.FirebaseAuthUIActivityResultContract
@@ -187,7 +189,7 @@ class LoginFragment : Fragment() {
 
     // Risultato dell'accesso con Google
     private fun onSignInResult(result: FirebaseAuthUIAuthenticationResult) {
-        if (result.resultCode == android.app.Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK) {
             val user = FirebaseAuth.getInstance().currentUser
             if (user != null) {
 

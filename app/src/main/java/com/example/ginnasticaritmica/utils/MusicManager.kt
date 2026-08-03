@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.utils
 
 import android.content.Context
 import android.media.AudioAttributes

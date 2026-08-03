@@ -1,8 +1,10 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.viewmodel
 
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
+import com.example.ginnasticaritmica.utils.CategoriaUtils
+import com.example.ginnasticaritmica.model.Atleta
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration

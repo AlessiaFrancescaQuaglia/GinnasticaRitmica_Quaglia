@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.utils
 
 import android.graphics.Bitmap
 import android.util.Base64

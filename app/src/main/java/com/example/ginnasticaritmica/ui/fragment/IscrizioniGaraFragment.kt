@@ -1,7 +1,8 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -9,15 +10,19 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
-import androidx.navigation.fragment.navArgs // IMPORTANTE: Import per Safe Args
+import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ginnasticaritmica.IscrizioniGaraFragmentArgs
+import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentIscrizioniGareBinding
+import com.example.ginnasticaritmica.model.Atleta
+import com.example.ginnasticaritmica.model.Gara
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
-import androidx.core.graphics.toColorInt
 
 class IscrizioniGaraFragment : Fragment() {
 
@@ -186,7 +191,7 @@ class IscrizioniGaraFragment : Fragment() {
                 holder.btnIscrivi.text = "Modifica"
             } else {
                 holder.tvStato.text = "Non iscritta"
-                holder.tvStato.setTextColor(android.graphics.Color.RED)
+                holder.tvStato.setTextColor(Color.RED)
                 holder.btnIscrivi.text = "Iscrivi"
             }
 

@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
@@ -8,17 +8,23 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.ginnasticaritmica.ui.adapter.AppelloAdapter
 import com.example.ginnasticaritmica.databinding.FragmentPresenzeBinding
+import com.example.ginnasticaritmica.model.Atleta
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import java.io.File
+import java.io.FileWriter
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import kotlin.collections.iterator
 
 class PresenzeFragment : Fragment() {
 
@@ -154,7 +160,7 @@ class PresenzeFragment : Fragment() {
         val annoCorrente = Calendar.getInstance().get(Calendar.YEAR)
 
         // Usiamo Locale.US per evitare che i numeri vengano formattati in lingue locali
-        val prefissoMese = String.format(Locale.US, "%04d-%02d-", annoCorrente, numeroMese)
+        val prefissoMese = String.Companion.format(Locale.US, "%04d-%02d-", annoCorrente, numeroMese)
 
         val giorniAttivi = mutableSetOf<Int>()
 
@@ -192,7 +198,7 @@ class PresenzeFragment : Fragment() {
             var countAssenze = 0
 
             for (giorno in giorniOrdinati) {
-                val dataDaCercare = String.format(Locale.US, "%04d-%02d-%02d", annoCorrente, numeroMese, giorno)
+                val dataDaCercare = String.Companion.format(Locale.US, "%04d-%02d-%02d", annoCorrente, numeroMese, giorno)
 
                 if (atleta.datePresenze.contains(dataDaCercare)) {
                     csvBuilder.append("X;")
@@ -209,10 +215,10 @@ class PresenzeFragment : Fragment() {
         }
 
         try {
-            val file = java.io.File(requireContext().cacheDir, "Report_Presenze_$nomeMese.csv")
-            java.io.FileWriter(file).use { it.write(csvBuilder.toString()) }
+            val file = File(requireContext().cacheDir, "Report_Presenze_$nomeMese.csv")
+            FileWriter(file).use { it.write(csvBuilder.toString()) }
 
-            val uri = androidx.core.content.FileProvider.getUriForFile(
+            val uri = FileProvider.getUriForFile(
                 requireContext(),
                 "${requireContext().packageName}.provider",
                 file

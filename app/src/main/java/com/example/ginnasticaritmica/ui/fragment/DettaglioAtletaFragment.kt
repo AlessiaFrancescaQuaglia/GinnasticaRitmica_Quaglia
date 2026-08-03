@@ -1,11 +1,14 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.app.DatePickerDialog
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.Bundle
+import android.text.InputType
 import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
@@ -13,12 +16,18 @@ import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
+import com.example.ginnasticaritmica.utils.CategoriaUtils
+import com.example.ginnasticaritmica.DettaglioAtletaFragmentArgs
+import com.example.ginnasticaritmica.utils.MusicManager
+import com.example.ginnasticaritmica.utils.PhotoManager
 import com.example.ginnasticaritmica.databinding.FragmentDettaglioAtletaBinding
+import com.example.ginnasticaritmica.model.Atleta
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
@@ -83,7 +92,8 @@ class DettaglioAtletaFragment : Fragment() {
                 binding.btnFermaMusica.visibility = View.GONE
             },
             onError = {
-                Toast.makeText(requireContext(), "Errore di riproduzione.", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), "Errore di riproduzione.", Toast.LENGTH_LONG)
+                    .show()
                 binding.btnRiproduciMusica.visibility = View.VISIBLE
                 binding.btnFermaMusica.visibility = View.GONE
             }
@@ -106,7 +116,7 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnModificaEmail.setOnClickListener {
             val inputEmail = EditText(requireContext())
             inputEmail.hint = "Inserisci l'email della ginnasta"
-            inputEmail.inputType = android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            inputEmail.inputType = InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
 
             AlertDialog.Builder(requireContext())
                 .setTitle("Collega/Modifica Email")
@@ -130,17 +140,23 @@ class DettaglioAtletaFragment : Fragment() {
         binding.btnEliminaAtleta.setOnClickListener { mostraConfermaEliminazione() }
 
         binding.btnModificaFoto.setOnClickListener {
-            if (androidx.core.content.ContextCompat.checkSelfPermission(requireContext(), android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
                 takePictureLauncher.launch(null)
             } else {
-                requestCameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                requestCameraPermissionLauncher.launch(Manifest.permission.CAMERA)
             }
         }
 
         binding.btnAggiornaCertificato.setOnClickListener {
             val cal = Calendar.getInstance()
             DatePickerDialog(requireContext(), { _, year, month, day ->
-                val data = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
+                val data = String.Companion.format(
+                    Locale.getDefault(),
+                    "%04d-%02d-%02d",
+                    year,
+                    month + 1,
+                    day
+                )
                 binding.tvScadenzaCertificato.text = data
                 aggiornaDatoSuFirebase("scadenzaCertificato", data)
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
@@ -165,7 +181,8 @@ class DettaglioAtletaFragment : Fragment() {
         val titolo = if (isPresenza) "Scegli data per la Presenza" else "Scegli data per l'Assenza"
 
         val dialog = DatePickerDialog(requireContext(), { _, year, month, day ->
-            val dataScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
+            val dataScelta =
+                String.Companion.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
             aggiungiPresenzaOAssenza(dataScelta, isPresenza)
         }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
 
@@ -335,16 +352,24 @@ class DettaglioAtletaFragment : Fragment() {
         DatePickerDialog(requireContext(), { _, year, month, day ->
 
             val nuovaCategoria = CategoriaUtils.calcolaCategoria(year, month, day)
-            val dataScelta = String.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
+            val dataScelta =
+                String.Companion.format(Locale.getDefault(), "%04d-%02d-%02d", year, month + 1, day)
 
             binding.tvDataNascita.text = "Data di nascita: $dataScelta"
             atletaCorrente?.categoria = nuovaCategoria
             aggiornaIntestazione()
 
             atletaId?.let { id ->
-                val aggiornamenti = mapOf("dataNascita" to dataScelta, "categoria" to nuovaCategoria)
+                val aggiornamenti =
+                    mapOf("dataNascita" to dataScelta, "categoria" to nuovaCategoria)
                 db.collection("Atlete").document(id).update(aggiornamenti)
-                    .addOnSuccessListener { Toast.makeText(requireContext(), "Categoria aggiornata a $nuovaCategoria!", Toast.LENGTH_LONG).show() }
+                    .addOnSuccessListener {
+                        Toast.makeText(
+                            requireContext(),
+                            "Categoria aggiornata a $nuovaCategoria!",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
             }
         }, cal.get(Calendar.YEAR) - 10, cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
     }

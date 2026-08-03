@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.annotation.SuppressLint
 import android.content.Intent
@@ -9,14 +9,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.graphics.toColorInt
+import androidx.core.net.toUri
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import com.example.ginnasticaritmica.databinding.FragmentProfiloAllenatriceBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
-import androidx.core.graphics.toColorInt
-import androidx.core.net.toUri
 
 class ProfiloAllenatriceFragment : Fragment() {
 

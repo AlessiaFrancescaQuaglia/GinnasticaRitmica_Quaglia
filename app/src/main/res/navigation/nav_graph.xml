@@ -7,7 +7,7 @@
 
     <fragment
         android:id="@+id/homeInfoFragment"
-        android:name="com.example.ginnasticaritmica.HomeInfoFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.HomeInfoFragment"
         android:label="HomeInfoFragment" >
         <action
             android:id="@+id/action_homeInfoFragment_to_loginFragment"
@@ -16,7 +16,7 @@
 
     <fragment
         android:id="@+id/loginFragment"
-        android:name="com.example.ginnasticaritmica.LoginFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.LoginFragment"
         android:label="Login"
         tools:layout="@layout/fragment_login">
         <action
@@ -29,7 +29,7 @@
 
     <fragment
         android:id="@+id/coachDashboardFragment"
-        android:name="com.example.ginnasticaritmica.CoachDashboardFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.CoachDashboardFragment"
         android:label="Dashboard Allenatrice"
         tools:layout="@layout/fragment_coach_dashboard">
         <action
@@ -54,7 +54,7 @@
 
     <fragment
         android:id="@+id/gestioneAtleteFragment"
-        android:name="com.example.ginnasticaritmica.GestioneAtleteFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.GestioneAtleteFragment"
         android:label="GestioneAtleteFragment" >
         <action
             android:id="@+id/action_gestioneAtleteFragment_to_dettaglioAtletaFragment"
@@ -63,7 +63,7 @@
 
     <fragment
         android:id="@+id/dettaglioAtletaFragment"
-        android:name="com.example.ginnasticaritmica.DettaglioAtletaFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.DettaglioAtletaFragment"
         android:label="DettaglioAtletaFragment" >
         <argument
             android:name="atletaId"
@@ -75,26 +75,26 @@
 
     <fragment
         android:id="@+id/presenzeFragment"
-        android:name="com.example.ginnasticaritmica.PresenzeFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.PresenzeFragment"
         android:label="Registro Appello"
         tools:layout="@layout/fragment_presenze" />
 
     <fragment
         android:id="@+id/liveScoringFragment"
-        android:name="com.example.ginnasticaritmica.LiveScoringFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.LiveScoringFragment"
         android:label="Live Scoring"
         tools:layout="@layout/fragment_live_scoring" />
 
     <fragment
         android:id="@+id/athleteDashboardFragment"
-        android:name="com.example.ginnasticaritmica.AthleteDashboardFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.AthleteDashboardFragment"
         android:label="Area Atleta"
         tools:layout="@layout/fragment_athlete_dashboard">
     </fragment>
 
     <fragment
         android:id="@+id/listaGareFragment"
-        android:name="com.example.ginnasticaritmica.ListaGareFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.ListaGareFragment"
         android:label="Gare Programmate"
         tools:layout="@layout/fragment_lista_gare" >
         <action
@@ -104,7 +104,7 @@
 
     <fragment
         android:id="@+id/iscrizioniGaraFragment"
-        android:name="com.example.ginnasticaritmica.IscrizioniGaraFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.IscrizioniGaraFragment"
         android:label="Gestione Iscrizioni"
         tools:layout="@layout/fragment_iscrizioni_gare" >
         <argument
@@ -114,7 +114,7 @@
 
     <fragment
         android:id="@+id/profiloAllenatriceFragment"
-        android:name="com.example.ginnasticaritmica.ProfiloAllenatriceFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.ProfiloAllenatriceFragment"
         android:label="ProfiloAllenatriceFragment" />
 
 </navigation>

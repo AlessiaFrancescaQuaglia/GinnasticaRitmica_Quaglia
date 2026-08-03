@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.annotation.SuppressLint
 import android.app.AlertDialog
@@ -13,7 +13,11 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.ginnasticaritmica.ui.adapter.GareAdapter
+import com.example.ginnasticaritmica.ListaGareFragmentDirections
+import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentListaGareBinding
+import com.example.ginnasticaritmica.model.Gara
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import java.util.Calendar
@@ -46,9 +50,10 @@ class ListaGareFragment : Fragment() {
         // Passo un blocco di codice direttamente nell'Adapter
         adapter = GareAdapter(listaGare) { garaSelezionata ->
             // USIAMO SAFE ARGS PER PASSARE L'ID DELLA GARA
-            val action = ListaGareFragmentDirections.actionListaGareFragmentToIscrizioniGaraFragment(
-                garaId = garaSelezionata.id
-            )
+            val action =
+                ListaGareFragmentDirections.Companion.actionListaGareFragmentToIscrizioniGaraFragment(
+                    garaId = garaSelezionata.id
+                )
             findNavController().navigate(action)
         }
 
@@ -108,7 +113,13 @@ class ListaGareFragment : Fragment() {
         tvData.setOnClickListener {
             val cal = Calendar.getInstance()
             DatePickerDialog(requireContext(), { _, year, month, day ->
-                dataScelta = String.format(Locale.getDefault(), "%02d/%02d/%04d", day, month + 1, year)
+                dataScelta = String.Companion.format(
+                    Locale.getDefault(),
+                    "%02d/%02d/%04d",
+                    day,
+                    month + 1,
+                    year
+                )
                 tvData.text = "📅 Data: $dataScelta"
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }

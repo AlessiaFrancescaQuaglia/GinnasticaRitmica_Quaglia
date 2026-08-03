@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.adapter
 
 import android.annotation.SuppressLint
 import android.content.res.ColorStateList
@@ -9,6 +9,9 @@ import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ginnasticaritmica.GestioneAtleteFragmentDirections
+import com.example.ginnasticaritmica.R
+import com.example.ginnasticaritmica.model.Atleta
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,7 +86,7 @@ class AtletaAdapter(private var listaAtlete: List<Atleta>) :
         // LOGICA DI NAVIGAZIONE AL CLICK
         holder.itemView.setOnClickListener {
             // Usiamo la classe generata da Safe Args per navigare verso il dettaglio dell'atleta
-            val action = GestioneAtleteFragmentDirections.actionGestioneAtleteFragmentToDettaglioAtletaFragment(
+            val action = GestioneAtleteFragmentDirections.Companion.actionGestioneAtleteFragmentToDettaglioAtletaFragment(
                 atletaId = atleta.id,
                 atletaNome = atleta.nome
             )

@@ -1,23 +1,29 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.adapter
+
+import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.TextView
 import androidx.core.net.toUri
+import androidx.recyclerview.widget.RecyclerView
+import com.example.ginnasticaritmica.R
 
 //Fa da "ponte" tra i dati grezzi (Mappa) e la grafica
 class MusicaAdapter(
     private val dati: Map<String, String>, // Mappa Attrezzo -> Link
-    private val context: android.content.Context
-) : androidx.recyclerview.widget.RecyclerView.Adapter<MusicaAdapter.ViewHolder>() {
+    private val context: Context
+) : RecyclerView.Adapter<MusicaAdapter.ViewHolder>() {
 
     // Dato che le Mappe non hanno un ordine numerico, estraggo le chiavi (i nomi degli attrezzi) in una Lista.
     private val chiavi = dati.keys.toList()
 
     //Evita che il telefono ricalcoli i findViewById ogni volta che l'utente fa scroll
-    class ViewHolder(view: View) : androidx.recyclerview.widget.RecyclerView.ViewHolder(view) {
-        val tvAttrezzo = view.findViewById<android.widget.TextView>(R.id.tvNomeAttrezzo)!!
-        val btnAscolta = view.findViewById<android.widget.Button>(R.id.btnAscolta)!!
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        val tvAttrezzo = view.findViewById<TextView>(R.id.tvNomeAttrezzo)!!
+        val btnAscolta = view.findViewById<Button>(R.id.btnAscolta)!!
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =

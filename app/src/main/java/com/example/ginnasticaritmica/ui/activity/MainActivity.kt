@@ -1,7 +1,12 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.activity
 
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.os.Build
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import com.example.ginnasticaritmica.R
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -11,17 +16,17 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         // RUNTIME PERMISSION & NOTIFICATION CHANNEL: Da fare all'avvio dell'app per tutti
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 1)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
 
-            val channel = android.app.NotificationChannel(
+            val channel = NotificationChannel(
                 "CANALE_SCADENZE",
                 "Avvisi Scadenze Certificati",
-                android.app.NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_HIGH
             )
             channel.description = "Notifiche per i certificati medici scaduti delle atlete"
 
-            val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+            val notificationManager = getSystemService(NotificationManager::class.java)
             notificationManager.createNotificationChannel(channel)
         }
     }

@@ -7,14 +7,14 @@
     <data>
         <variable
             name="viewModel"
-            type="com.example.ginnasticaritmica.CoachViewModel" />
+            type="com.example.ginnasticaritmica.viewmodel.CoachViewModel" />
     </data>
 
     <androidx.drawerlayout.widget.DrawerLayout
         android:id="@+id/drawerLayout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        tools:context=".CoachDashboardFragment">
+        tools:context=".ui.fragment.CoachDashboardFragment">
 
         <LinearLayout
             android:layout_width="match_parent"

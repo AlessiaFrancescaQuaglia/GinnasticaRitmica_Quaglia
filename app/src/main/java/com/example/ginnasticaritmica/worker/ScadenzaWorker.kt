@@ -1,5 +1,6 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.worker
 
+import android.R
 import android.app.NotificationManager
 import android.content.Context
 import androidx.core.app.NotificationCompat
@@ -65,7 +66,7 @@ class ScadenzaWorker(context: Context, params: WorkerParameters) : Worker(contex
 
         // Costruiamo la notifica agganciandola al "CANALE_SCADENZE" creato prima
         val notifica = NotificationCompat.Builder(applicationContext, "CANALE_SCADENZE")
-            .setSmallIcon(android.R.drawable.ic_dialog_alert) // Icona di pericolo standard
+            .setSmallIcon(R.drawable.ic_dialog_alert) // Icona di pericolo standard
             .setContentTitle("Attenzione! Certificati Scaduti")
             .setContentText("Hai $numeroScaduti atlete con il certificato medico scaduto o mancante.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)

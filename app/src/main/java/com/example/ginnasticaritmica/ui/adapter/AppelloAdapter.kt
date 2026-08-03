@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.adapter
 
 import android.view.LayoutInflater
 import android.view.View
@@ -7,6 +7,8 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ginnasticaritmica.R
+import com.example.ginnasticaritmica.model.Atleta
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

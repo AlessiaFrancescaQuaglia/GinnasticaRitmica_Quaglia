@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.model
 
 data class Gara(
     var id: String = "",

@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentHomeInfoBinding
 
 //Una schermata semplice che funge da punto di ingresso.

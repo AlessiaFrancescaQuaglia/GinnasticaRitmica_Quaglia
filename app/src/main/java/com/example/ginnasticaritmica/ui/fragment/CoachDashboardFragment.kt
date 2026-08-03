@@ -1,15 +1,25 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.core.graphics.toColorInt
 import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.navigation.fragment.findNavController
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
+import com.example.ginnasticaritmica.viewmodel.CoachViewModel
+import com.example.ginnasticaritmica.R
+import com.example.ginnasticaritmica.worker.ScadenzaWorker
 import com.example.ginnasticaritmica.databinding.FragmentCoachDashboardBinding
+import com.firebase.ui.auth.AuthUI
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -17,7 +27,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import androidx.core.graphics.toColorInt
 
 class CoachDashboardFragment : Fragment() {
 
@@ -60,19 +69,19 @@ class CoachDashboardFragment : Fragment() {
 
         // ATTIVAZIONE NOTIFICHE SOLO PER ALLENATRICE
         // Questo timer si attiva SOLO quando l'allenatrice entra nel suo pannello
-        val controlloScadenzeRequest = androidx.work.PeriodicWorkRequestBuilder<ScadenzaWorker>(1, TimeUnit.DAYS).build()
+        val controlloScadenzeRequest = PeriodicWorkRequestBuilder<ScadenzaWorker>(1, TimeUnit.DAYS).build()
 
-        androidx.work.WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
+        WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
             "ControlloScadenzeGiornaliero",
-            androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.KEEP,
             controlloScadenzeRequest
         )
 
         // Test immediato diu debug
-        val testImmediato = androidx.work.OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
-        androidx.work.WorkManager.getInstance(requireContext()).enqueueUniqueWork(
+        val testImmediato = OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
+        WorkManager.getInstance(requireContext()).enqueueUniqueWork(
         "TestImmediato",
-        androidx.work.ExistingWorkPolicy.REPLACE,
+        ExistingWorkPolicy.REPLACE,
         testImmediato
         )
 
@@ -106,10 +115,10 @@ class CoachDashboardFragment : Fragment() {
                 // Logout logico: torna alla pagina di Login "svuotando" lo stack
                 R.id.nav_logout -> {
                     //spengo i timer in background
-                    androidx.work.WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeGiornaliero")
-                    androidx.work.WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeImmediato")
+                    WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeGiornaliero")
+                    WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeImmediato")
                     //scollega fisicamente l'account Google e Firebase
-                    com.firebase.ui.auth.AuthUI.getInstance()
+                    AuthUI.getInstance()
                         .signOut(requireContext())
                         .addOnCompleteListener {
                             //quando ha finito di scollegarsi, ritornas alla pagina di Login

@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.fragment
 
 import android.annotation.SuppressLint
 import android.os.Bundle
@@ -8,6 +8,9 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.ginnasticaritmica.ui.adapter.MusicaAdapter
+import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentAthleteDashboardBinding
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -61,7 +64,7 @@ class AthleteDashboardFragment : Fragment() {
                         // Se è vuota, nasconde la lista per non mostrare spazi vuoti nell'app.
                         if (!tracce.isNullOrEmpty()) {
                             binding.rvMusiche.visibility = View.VISIBLE
-                            binding.rvMusiche.layoutManager = androidx.recyclerview.widget.LinearLayoutManager(requireContext())
+                            binding.rvMusiche.layoutManager = LinearLayoutManager(requireContext())
                             // Passa la mappa al MusicaAdapter che disegnerà le righe
                             binding.rvMusiche.adapter = MusicaAdapter(tracce, requireContext())
                         } else {

@@ -1,4 +1,4 @@
-package com.example.ginnasticaritmica
+package com.example.ginnasticaritmica.ui.adapter
 
 import android.annotation.SuppressLint
 import android.view.LayoutInflater
@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.ginnasticaritmica.R
+import com.example.ginnasticaritmica.model.Gara
 
 // Passo una funzione come parametro per delegare il click al Fragment
 class GareAdapter(
