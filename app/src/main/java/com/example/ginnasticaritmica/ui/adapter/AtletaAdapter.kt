@@ -9,9 +9,9 @@ import android.widget.TextView
 import androidx.core.graphics.toColorInt
 import androidx.navigation.findNavController
 import androidx.recyclerview.widget.RecyclerView
-import com.example.ginnasticaritmica.GestioneAtleteFragmentDirections
 import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.model.Atleta
+import com.example.ginnasticaritmica.ui.fragment.GestioneAtleteFragmentDirections
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

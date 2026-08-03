@@ -14,6 +14,11 @@
         android:title="Registro Appello" />
 
     <item
+        android:id="@+id/AnalisiPosaFragment"
+        android:icon="@android:drawable/ic_menu_camera"
+        android:title="Analisi Posa" />
+
+    <item
         android:id="@+id/nav_atlete"
         android:icon="@android:drawable/ic_menu_manage"
         android:title="Gestione Atlete" />

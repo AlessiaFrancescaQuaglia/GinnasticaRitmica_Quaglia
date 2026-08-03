@@ -15,7 +15,6 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.navArgs
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.example.ginnasticaritmica.IscrizioniGaraFragmentArgs
 import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentIscrizioniGareBinding
 import com.example.ginnasticaritmica.model.Atleta

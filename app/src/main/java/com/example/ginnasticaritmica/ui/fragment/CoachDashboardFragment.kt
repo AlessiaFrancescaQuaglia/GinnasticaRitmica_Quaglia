@@ -109,6 +109,9 @@ class CoachDashboardFragment : Fragment() {
                 R.id.nav_atlete -> {
                     findNavController().navigate(R.id.action_coachDashboard_to_gestioneAtlete)
                 }
+                R.id.AnalisiPosaFragment -> {
+                    findNavController().navigate(R.id.action_coachDashboardFragment_to_analisiPosaFragment)
+                }
                 R.id.presenzeFragment -> {
                     findNavController().navigate(R.id.presenzeFragment)
                 }

@@ -14,7 +14,6 @@ import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.ginnasticaritmica.ui.adapter.GareAdapter
-import com.example.ginnasticaritmica.ListaGareFragmentDirections
 import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.databinding.FragmentListaGareBinding
 import com.example.ginnasticaritmica.model.Gara

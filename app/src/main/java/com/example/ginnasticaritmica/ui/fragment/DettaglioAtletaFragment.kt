@@ -23,7 +23,6 @@ import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import com.bumptech.glide.Glide
 import com.example.ginnasticaritmica.utils.CategoriaUtils
-import com.example.ginnasticaritmica.DettaglioAtletaFragmentArgs
 import com.example.ginnasticaritmica.utils.MusicManager
 import com.example.ginnasticaritmica.utils.PhotoManager
 import com.example.ginnasticaritmica.databinding.FragmentDettaglioAtletaBinding

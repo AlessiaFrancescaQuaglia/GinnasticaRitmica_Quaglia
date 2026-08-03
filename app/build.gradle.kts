@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.example.ginnasticaritmica"
     compileSdk {
-        version = release(36) {
+        version = release(37) {
             minorApiLevel = 1
         }
     }
@@ -35,8 +35,25 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
+
     buildFeatures {
+        viewBinding = true
         dataBinding = true
+    }
+
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+configurations.all {
+    resolutionStrategy {
+        // Forza la compatibilità delle librerie
+        force("androidx.core:core-ktx:1.12.0")
     }
 }
 
@@ -51,10 +68,10 @@ dependencies {
     implementation(libs.androidx.navigation.fragment.ktx)
     implementation(libs.androidx.navigation.ui.ktx)
     // Importa Firebase BoM
-    implementation(platform("com.google.firebase:firebase-bom:32.8.0"))
-    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
 // Aggiunge Auth e Firestore
-    implementation("com.firebaseui:firebase-ui-auth:8.0.2")
+    implementation("com.firebaseui:firebase-ui-auth:9.1.1")
     implementation(libs.firebase.auth)
     implementation("com.google.firebase:firebase-firestore")
     testImplementation(libs.junit)
@@ -64,12 +81,11 @@ dependencies {
     // --- LIBRERIE PER LA TESI: COMPUTER VISION ---
 
     // 1. CameraX (La fotocamera nativa di Jetpack)
-    val cameraxVersion = "1.3.3"
+    val cameraxVersion = "1.4.2"
     implementation("androidx.camera:camera-core:$cameraxVersion")
     implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
     implementation("androidx.camera:camera-view:$cameraxVersion")
-    implementation("androidx.camera:camera-lifecycle:${cameraxVersion}")
-
     // 2. Google MediaPipe (Il motore di Pose Estimation)
     implementation("com.google.mediapipe:tasks-vision:1.0.0")
 

@@ -50,6 +50,9 @@
         <action
             android:id="@+id/action_coachDashboardFragment_to_profiloAllenatriceFragment2"
             app:destination="@id/profiloAllenatriceFragment" />
+        <action
+            android:id="@+id/action_coachDashboardFragment_to_analisiPosaFragment"
+            app:destination="@id/analisiPosaFragment" />
     </fragment>
 
     <fragment
@@ -116,5 +119,11 @@
         android:id="@+id/profiloAllenatriceFragment"
         android:name="com.example.ginnasticaritmica.ui.fragment.ProfiloAllenatriceFragment"
         android:label="ProfiloAllenatriceFragment" />
+
+    <fragment
+        android:id="@+id/analisiPosaFragment"
+        android:name="com.example.ginnasticaritmica.ui.fragment.AnalisiPosaFragment"
+        android:label="Analisi Posa"
+        tools:layout="@layout/fragment_analisi_posa" />
 
 </navigation>
