@@ -6,6 +6,7 @@ import android.util.Log
 import com.google.mediapipe.framework.image.MPImage
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarker
 import com.google.mediapipe.tasks.vision.poselandmarker.PoseLandmarkerResult
@@ -86,9 +87,15 @@ class MediaPipeHelper(
         }
     }
 
-    fun detectLiveStream(mpImage: MPImage) {
+    fun detectLiveStream(mpImage: MPImage, rotationDegrees: Int = 0) {
         val frameTime = SystemClock.uptimeMillis()
-        poseLandmarker?.detectAsync(mpImage, frameTime)
+
+        // Diciamo a MediaPipe come ruotare internamente l'immagine
+        val imageProcessingOptions = ImageProcessingOptions.builder()
+            .setRotationDegrees(rotationDegrees)
+            .build()
+
+        poseLandmarker?.detectAsync(mpImage, imageProcessingOptions, frameTime)
     }
 
     interface LandmarkerListener {

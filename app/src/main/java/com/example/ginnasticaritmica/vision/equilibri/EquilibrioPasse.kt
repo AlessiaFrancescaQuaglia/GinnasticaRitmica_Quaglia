@@ -12,21 +12,44 @@ class EquilibrioPasse : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        val angleLeft = PoseAnalyzer.calculateAngle3D(landmarks[23], landmarks[25], landmarks[27])
-        val angleRight = PoseAnalyzer.calculateAngle3D(landmarks[24], landmarks[26], landmarks[28])
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
 
-        if (angleLeft > 120.0 && angleRight > 120.0) return null
+        // ==========================================
+        // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
 
-        val isLeftBent = angleLeft < angleRight
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+        if (!isLeftPlanted && !isRightPlanted) {
+            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
+        }
+        // ==========================================
+
+        // Se entrambe le ginocchia sono tese, non può essere un Passé
+        if (leftKneeAngle > 120.0 && rightKneeAngle > 120.0) return null
+
+        val isLeftBent = leftKneeAngle < rightKneeAngle
         val isAppoggioLeft = !isLeftBent
 
-        val supportAngle = if (isAppoggioLeft) angleLeft else angleRight
+        val supportAngle = if (isAppoggioLeft) leftKneeAngle else rightKneeAngle
         if (supportAngle < 160.0) return null
 
         // --- FIREWALL ALLARGATO (Da 0.18f a 0.25f) ---
         // Diamo più respiro a MediaPipe per capire dove si trova il piede!
         val puntaPiegata = if (isLeftBent) landmarks[31] else landmarks[32]
-        val ginocchioTerra = if (isAppoggioLeft) landmarks[25] else landmarks[26]
+        val ginocchioTerra = if (isAppoggioLeft) leftKnee else rightKnee
         val distanzaPuntaGinocchio = PoseAnalyzer.calculateDistance3D(puntaPiegata, ginocchioTerra)
 
         if (distanzaPuntaGinocchio > 0.25f) {
@@ -46,8 +69,8 @@ class EquilibrioPasse : Difficolta {
         }
 
         val spallaPiegata = if (isLeftBent) landmarks[11] else landmarks[12]
-        val ancaPiegata = if (isLeftBent) landmarks[23] else landmarks[24]
-        val ginocchioPiegato = if (isLeftBent) landmarks[25] else landmarks[26]
+        val ancaPiegata = if (isLeftBent) leftHip else rightHip
+        val ginocchioPiegato = if (isLeftBent) leftKnee else rightKnee
 
         val altezzaGinocchio = PoseAnalyzer.calculateAngle3D(spallaPiegata, ancaPiegata, ginocchioPiegato)
 

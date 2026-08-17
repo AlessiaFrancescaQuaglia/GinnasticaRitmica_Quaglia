@@ -34,8 +34,12 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
     private lateinit var viewFinder: PreviewView
     private lateinit var txtRisultato: TextView
     private lateinit var poseOverlayView: com.example.ginnasticaritmica.vision.PoseOverlayView
-    private var isProcessing = false // Il nostro semaforo
+
+    private var isProcessing = false // Il nostro semaforo anti-lag
     private var mediaPipeHelper: MediaPipeHelper? = null
+
+    private var frameWidth = 1
+    private var frameHeight = 1
 
     private val requestPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
@@ -93,15 +97,17 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
                     it.surfaceProvider = viewFinder.surfaceProvider
                 }
 
-            // --- NUOVO METODO: ResolutionSelector ---
+            // --- OTTIMIZZAZIONE FPS: Risoluzione VGA (480x640) ---
             val resolutionSelector = ResolutionSelector.Builder()
                 .setResolutionStrategy(
-                    ResolutionStrategy(Size(720, 1280), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
+                    ResolutionStrategy(Size(480, 640), ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER)
+                )
                 .build()
 
             // Analisi dei fotogrammi in tempo reale per l'IA
             val imageAnalysis = ImageAnalysis.Builder()
-                .setResolutionSelector(resolutionSelector) // Nessuna riga barrata!
+                .setResolutionSelector(resolutionSelector)
+                // SCARTA I FRAME IN CODA PER NON FAR LAGGARE IL TABLET!
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build()
                 .also {
@@ -110,7 +116,7 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
                     }
                 }
 
-            // Usiamo la fotocamera frontale o posteriore (qui mettiamo la posteriore, puoi cambiarla in FRONT)
+            // Usiamo la fotocamera frontale o posteriore
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
@@ -122,17 +128,12 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
                     imageAnalysis
                 )
             } catch (exc: Exception) {
-                // Gestione errore
                 exc.printStackTrace()
             }
 
         }, ContextCompat.getMainExecutor(requireContext()))
-        // Il getMainExecutor assicura che la UI si aggiorni senza crash
     }
 
-    private var frameWidth = 1
-    private var frameHeight = 1
-    private var ultimoFotogrammaAnalizzato = 0L
     private fun processaFotogramma(imageProxy: ImageProxy) {
         // Se il semaforo è rosso (l'IA sta ancora calcolando il frame precedente),
         // scartiamo l'immagine istantaneamente senza accumulare ritardo!
@@ -143,21 +144,23 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
 
         isProcessing = true // Mettiamo il semaforo rosso
 
+        // 1. Estrazione ultra-veloce, nessuna nuova immagine allocata in memoria (addio Matrix!)
         val bitmap = imageProxy.toBitmap()
         val rotationDegrees = imageProxy.imageInfo.rotationDegrees
-        val matrix = android.graphics.Matrix().apply {
-            postRotate(rotationDegrees.toFloat())
+
+        // 2. Salviamo le dimensioni incrociate per disegnare i pallini dritti a schermo
+        if (rotationDegrees == 90 || rotationDegrees == 270) {
+            frameWidth = bitmap.height
+            frameHeight = bitmap.width
+        } else {
+            frameWidth = bitmap.width
+            frameHeight = bitmap.height
         }
 
-        val rotatedBitmap = Bitmap.createBitmap(
-            bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true
-        )
+        val mpImage = com.google.mediapipe.framework.image.BitmapImageBuilder(bitmap).build()
 
-        frameWidth = rotatedBitmap.width
-        frameHeight = rotatedBitmap.height
-
-        val mpImage = com.google.mediapipe.framework.image.BitmapImageBuilder(rotatedBitmap).build()
-        mediaPipeHelper?.detectLiveStream(mpImage)
+        // 3. Passiamo l'immagine grezza e i GRADI all'IA. Ci penserà il C++ a ruotare a costo zero!
+        mediaPipeHelper?.detectLiveStream(mpImage, rotationDegrees)
 
         imageProxy.close()
     }
@@ -171,14 +174,14 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
             }
             poseOverlayView.setResults(result, frameWidth, frameHeight)
 
-            isProcessing = false // <-- AGGIUNGI QUESTA RIGA (Semaforo verde!)
+            isProcessing = false // <-- SEMAFORO VERDE: pronti per il prossimo frame!
         }
     }
 
     override fun onError(error: String) {
         activity?.runOnUiThread {
             Toast.makeText(requireContext(), error, Toast.LENGTH_SHORT).show()
-            isProcessing = false // <-- AGGIUNGI QUESTA RIGA
+            isProcessing = false // <-- SEMAFORO VERDE anche in caso di errore!
         }
     }
 

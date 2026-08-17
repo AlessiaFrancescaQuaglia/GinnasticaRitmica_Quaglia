@@ -13,8 +13,6 @@ class EquilibrioCosacco : Difficolta {
         if (landmarks.size <= 32) return null
 
         val nose = landmarks[0]
-        val leftShoulder = landmarks[11]
-        val rightShoulder = landmarks[12]
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftKnee = landmarks[25]
@@ -22,19 +20,31 @@ class EquilibrioCosacco : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
-        // 1. Identifichiamo la gamba in appoggio e quella libera tramite Angoli 3D
-        // Usiamo il 3D per non farci ingannare dalla prospettiva quando è accovacciata
+        // ==========================================
+        // FIREWALL ANTI-VOLO (SPECIFICO PER ACCOSCIATE)
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
 
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        // In un Equilibrio Cosacco, il piede di appoggio è piegato (<90°) MA sorregge il corpo.
+        // Questo significa che la caviglia deve trovarsi NETTAMENTE sotto il bacino (almeno mezza lunghezza del femore).
+        // Se la caviglia è vicina al bacino, è la gamba rannicchiata di un Salto Cosacco in volo!
+        val isLeftSquatPlanted = leftKneeAngle < 90.0 && leftAnkle.y() > bacinoY + (femoreSx * 0.5f)
+        val isRightSquatPlanted = rightKneeAngle < 90.0 && rightAnkle.y() > bacinoY + (femoreDx * 0.5f)
+
         val isAppoggioLeft: Boolean
-        if (leftKneeAngle < 90.0 && rightKneeAngle > 140.0) {
+        if (isLeftSquatPlanted && rightKneeAngle > 135.0) {
             isAppoggioLeft = true
-        } else if (rightKneeAngle < 90.0 && leftKneeAngle > 140.0) {
+        } else if (isRightSquatPlanted && leftKneeAngle > 135.0) {
             isAppoggioLeft = false
         } else {
-            return null // Non c'è una gamba in accosciata e l'altra tesa
+            return null // Non è un equilibrio cosacco (è in volo, oppure non è in accosciata!)
         }
+        // ==========================================
 
         val supportHip = if (isAppoggioLeft) leftHip else rightHip
         val freeAnkle = if (isAppoggioLeft) rightAnkle else leftAnkle
@@ -72,15 +82,15 @@ class EquilibrioCosacco : Difficolta {
         val inReleve = RegoleGinnastica.verificaReleve(landmarks, isAppoggioLeft)
         if (!inReleve) valoreBase -= 0.10
 
-        // 6. Penalità esecutive sulla gamba libera misurata in 3D (così non penalizza se vista di sbieco)
+        // 6. Penalità esecutive sulla gamba libera misurata in 3D
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
 
-        val freeLegTension = PoseAnalyzer.calculateAngle3D(freeHip, freeKnee, freeAnkle)
+        val freeLegTension = if (isAppoggioLeft) rightKneeAngle else leftKneeAngle
         if (freeLegTension >= 170.0) penalita = 0.0
         else if (freeLegTension in 160.0..169.9) penalita = 0.10
-        else if (freeLegTension in 150.0..159.9) penalita = 0.30
+        else if (freeLegTension in 145.0..159.9) penalita = 0.30 // Tolleranza leggermente allargata
         else {
             penalita = 0.50
             isValida = false

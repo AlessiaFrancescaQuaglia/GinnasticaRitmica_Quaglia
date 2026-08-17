@@ -8,84 +8,134 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 class SaltoCosacco : Difficolta {
     override var nome = "SALTO COSACCO"
 
+    companion object {
+        private var tempoUltimaRotazione: Long = 0L
+        private var ultimaDirezioneSpalleDestra: Boolean? = null
+    }
+
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        val angleLeft = PoseAnalyzer.calculateAngle3D(landmarks[23], landmarks[25], landmarks[27])
-        val angleRight = PoseAnalyzer.calculateAngle3D(landmarks[24], landmarks[26], landmarks[28])
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
+        val spallaSx = landmarks[11]
+        val spallaDx = landmarks[12]
+        val nose = landmarks[0]
 
-        // 1. Identificazione Gamba Tesa e Gamba Piegata (Cosacco)
-        val isLeftStraight = angleLeft > angleRight
+        val bacinoX = (leftHip.x() + rightHip.x()) / 2f
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (spallaSx.y() + spallaDx.y()) / 2f
 
-        val straightHip = if (isLeftStraight) landmarks[23] else landmarks[24]
-        val straightKnee = if (isLeftStraight) landmarks[25] else landmarks[26]
-        val straightAnkle = if (isLeftStraight) landmarks[27] else landmarks[28]
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        // ==========================================
+        // FIREWALL ANTI-EQUILIBRIO
+        // ==========================================
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
+        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
+
+        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
+            return null
+        }
+
+        val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
+        if (ultimaDirezioneSpalleDestra == null) {
+            ultimaDirezioneSpalleDestra = isSpalleVersoDestra
+        } else if (ultimaDirezioneSpalleDestra != isSpalleVersoDestra) {
+            tempoUltimaRotazione = System.currentTimeMillis()
+            ultimaDirezioneSpalleDestra = isSpalleVersoDestra
+        }
+
+        // ==========================================
+        // IDENTIFICAZIONE GAMBE (Cosacco = 1 tesa, 1 piegata)
+        // MAGLIE ALLARGATE PER LA VELOCITÀ DI VOLO
+        // ==========================================
+        val isLeftStraight = leftKneeAngle > 135.0
+        val isRightStraight = rightKneeAngle > 135.0
+        val isLeftTucked = leftKneeAngle < 135.0
+        val isRightTucked = rightKneeAngle < 135.0
+
+        if (!((isLeftStraight && isRightTucked) || (isRightStraight && isLeftTucked))) {
+            return null
+        }
+
+        // ==========================================
+        // FIREWALL ANTI-ENJAMBÉE / ANTI-BOUCLE
+        // ==========================================
+        val isFacingRight = nose.x() > bacinoX
+        val tuckedKnee = if (isLeftStraight) rightKnee else leftKnee
+        val straightKnee = if (isLeftStraight) leftKnee else rightKnee
+
+        // In un salto sagittale (Enjambée), la gamba tesa va avanti e la gamba piegata va indietro (Boucle).
+        // In un Cosacco, ENTRAMBE le ginocchia devono stare davanti (o sotto) al bacino!
+        val isTuckedBackward = if (isFacingRight) tuckedKnee.x() < bacinoX else tuckedKnee.x() > bacinoX
+        val isStraightForward = if (isFacingRight) straightKnee.x() > bacinoX else straightKnee.x() < bacinoX
+
+        if (isTuckedBackward && isStraightForward) {
+            return null // È un salto con spaccata sagittale! Spegni il Cosacco e cedi il posto all'Enjambée.
+        }
+        // ==========================================
+
+        val straightAnkle = if (isLeftStraight) leftAnkle else rightAnkle
         val straightToe = if (isLeftStraight) landmarks[31] else landmarks[32]
 
-        val bentHip = if (isLeftStraight) landmarks[24] else landmarks[23]
-        val bentKnee = if (isLeftStraight) landmarks[26] else landmarks[25]
-        val bentAnkle = if (isLeftStraight) landmarks[28] else landmarks[27]
+        if (straightAnkle.y() > bacinoY + 0.15f) return null
 
-        // Controllo base: la gamba tesa deve essere estesa (>150°) e quella piegata raccolta (<130°)
-        val straightLegAngle = PoseAnalyzer.calculateAngle3D(straightHip, straightKnee, straightAnkle)
-        val bentLegAngle = PoseAnalyzer.calculateAngle3D(bentHip, bentKnee, bentAnkle)
-        if (straightLegAngle < 150.0 || bentLegAngle > 130.0) return null
+        val leftWrist = landmarks[15]
+        val rightWrist = landmarks[16]
 
-        // 2. CONTROLLO FONDAMENTALE DAL CODICE: Il piede deve essere PIÙ ALTO DELLA TESTA
-        val nose = landmarks[0] // Usiamo il naso/testa come riferimento
-        // In MediaPipe Y è invertito: valori più bassi (es. 0.2) sono più in alto nello schermo rispetto alla testa (es. 0.4)
-        if (straightToe.y() > nose.y()) {
-            return null // Se il piede è più in basso della testa, non è questo tipo di salto in alto.
-        }
+        val distTestaPiede = PoseAnalyzer.calculateDistance3D(nose, straightToe)
+        val isGambaAlta = straightAnkle.y() < spallaY + 0.1f || distTestaPiede < 0.30f
 
-        // 3. DISTINZIONE: Laterale vs Avanti
-        val supportHeel = if (isLeftStraight) landmarks[30] else landmarks[29]
-        val supportToe = if (isLeftStraight) landmarks[32] else landmarks[31]
-        val isFacingRight = supportToe.x() > supportHeel.x()
+        val distLeftWrist = PoseAnalyzer.calculateDistance3D(leftWrist, straightAnkle)
+        val distRightWrist = PoseAnalyzer.calculateDistance3D(rightWrist, straightAnkle)
+        val minWristDist = kotlin.math.min(distLeftWrist, distRightWrist)
 
-        // Controlliamo se la gamba è tesa lateralmente o in avanti
-        // Se la coordinata X della caviglia è molto discosta dall'anca rispetto all'asse, è laterale.
-        val isLateral = kotlin.math.abs(straightAnkle.x() - straightHip.x()) > 0.20f
+        val isConPresa = isGambaAlta && minWristDist <= 0.18f
 
-        // 4. CONTROLLO AIUTO (Presa della mano sullo stesso lato del piede teso)
-        val polsoStessoLato = if (isLeftStraight) landmarks[15] else landmarks[16]
-        val distanzaManoPiede = PoseAnalyzer.calculateDistance3D(polsoStessoLato, straightToe)
-        val conAiuto = distanzaManoPiede < 0.20f // Se la mano è vicina al piede
+        val tempoTrascorsoDaRotazione = System.currentTimeMillis() - tempoUltimaRotazione
+        val isEnTournant = tempoTrascorsoDaRotazione < 1500L
 
-        // 5. ASSEGNAZIONE NOME E VALORE BASE (Da tabelle ufficiali)
-        var valoreBase = 0.30
-        if (isLateral) {
-            if (conAiuto) {
-                nome = "COSACCO LATERALE IN ALTO (Con aiuto)"
-                valoreBase = 0.20 // Cod. 1.1802
-            } else {
-                nome = "COSACCO LATERALE IN ALTO (Senza aiuto)"
-                valoreBase = 0.30 // Cod. 1.1903
-            }
+        var valoreBase = 0.0
+
+        if (isConPresa) {
+            nome = if (isEnTournant) "COSACCO TOURNANT CON PRESA" else "COSACCO CON PRESA"
+            valoreBase = if (isEnTournant) 0.60 else 0.50
+        } else if (isGambaAlta) {
+            nome = if (isEnTournant) "COSACCO TOURNANT SENZA PRESA" else "COSACCO ALTO SENZA PRESA"
+            valoreBase = if (isEnTournant) 0.50 else 0.40
         } else {
-            nome = "COSACCO AVANTI IN ALTO"
-            valoreBase = 0.30 // Cod. 1.1703
+            nome = if (isEnTournant) "COSACCO EN TOURNANT" else "SALTO COSACCO CLASSICO"
+            valoreBase = if (isEnTournant) 0.40 else 0.30
         }
 
-        // 6. CALCOLO PENALITÀ DI ESECUZIONE (Deviazioni sull'altezza del piede)
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
 
-        // Differenza di altezza tra testa e punta del piede
-        val deltaAltezza = nose.y() - straightToe.y() // Più è positivo, più il piede è sopra la testa
-
-        if (deltaAltezza >= 0.10f) {
-            penalita += 0.0 // Piede ampiamente sopra la testa (Perfetto)
-        } else if (deltaAltezza in 0.02f..0.099f) {
-            penalita += 0.10 // Piccola deviazione (piede appena sopra la testa)
-        } else if (deltaAltezza in -0.05f..0.019f) {
-            penalita += 0.30 // Deviazione media (piede all'altezza della testa)
+        if (straightAnkle.y() < spallaY + 0.1f) {
+            penalita += 0.0
+        } else if (straightAnkle.y() < bacinoY - 0.05f) {
+            penalita += 0.10
+        } else if (straightAnkle.y() <= bacinoY + 0.15f) {
+            penalita += if (isGambaAlta) 0.30 else 0.10
         } else {
             penalita += 0.50
             isValida = false
-            msgErrore = "Piede sotto la testa"
+            msgErrore = "Gamba avanti caduta/troppo bassa"
         }
+
+        if (isValida) tempoUltimaRotazione = 0L
 
         return RisultatoDifficolta(isValida, if (isValida) valoreBase else 0.0, penalita, false, msgErrore)
     }

@@ -24,52 +24,86 @@ class EquilibrioPenche : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
-        // 1. Identificazione Gamba di Appoggio
-        val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
-        val supportAnkle = if (isAppoggioLeft) leftAnkle else rightAnkle
-        val liftedAnkle = if (isAppoggioLeft) rightAnkle else leftAnkle
-        val supportHip = if (isAppoggioLeft) leftHip else rightHip
-        val liftedKnee = if (isAppoggioLeft) rightKnee else leftKnee
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
+        val altezzaTronco = abs(bacinoY - spallaY)
 
-        // 2. DIREZIONE INFALLIBILE (Tallone vs Punta: immune al relevé)
-        val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
-        val supportToe = if (isAppoggioLeft) landmarks[31] else landmarks[32]
-        val isFacingRight = supportToe.x() > supportHeel.x()
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        // ==========================================
+        // FIREWALL 1: ANTI-VOLO INTELLIGENTE
+        // ==========================================
+        val isLeftLowest = leftAnkle.y() > rightAnkle.y()
+        val lowestAnkleY = if (isLeftLowest) leftAnkle.y() else rightAnkle.y()
+        val lowestKneeAngle = if (isLeftLowest) leftKneeAngle else rightKneeAngle
+
+        // Se la caviglia scende, MA il ginocchio è piegato a Biche (< 135°),
+        // è fisicamente impossibile che stia sorreggendo un Penché. È in volo!
+        if (lowestKneeAngle < 135.0) {
+            return null
+        }
+
+        if (lowestAnkleY < bacinoY + (altezzaTronco * 0.7f)) {
+            return null // Piede troppo in alto, è in volo.
+        }
+
+        // ==========================================
+        // FIREWALL 2: ANTI-INARCAMENTO
+        // ==========================================
+        val centroSpalleX = (leftShoulder.x() + rightShoulder.x()) / 2f
+        val bacinoCenterX = (leftHip.x() + rightHip.x()) / 2f
+
+        // Direzione guardata basata sul NASO (Infallibile)
+        val isFacingRight = nose.x() > bacinoCenterX
+
+        // In un Penché, le spalle vanno in AVANTI rispetto al bacino.
+        // Se vanno all'INDIETRO, è un salto con flessione!
+        val spostamentoSpalleDietro = if (isFacingRight) bacinoCenterX - centroSpalleX else centroSpalleX - bacinoCenterX
+
+        if (spostamentoSpalleDietro > 0.05f) {
+            return null // È inarcata all'indietro!
+        }
+        // ==========================================
+
+        // 1. Identificazione Gamba di Appoggio
+        val supportAnkle = if (isLeftLowest) leftAnkle else rightAnkle
+        val liftedAnkle = if (isLeftLowest) rightAnkle else leftAnkle
+        val supportHip = if (isLeftLowest) leftHip else rightHip
+        val liftedKnee = if (isLeftLowest) rightKnee else leftKnee
+
+        // 2. DIREZIONE
+        val supportHeel = if (isLeftLowest) landmarks[29] else landmarks[30]
+        val supportToe = if (isLeftLowest) landmarks[31] else landmarks[32]
+        val isFacingRightAppoggio = supportToe.x() > supportHeel.x()
 
         // 3. CONTROLLO GAMBA INDIETRO & FIREWALL 3D
-        val isKneeBack = if (isFacingRight) liftedKnee.x() < supportHip.x() else liftedKnee.x() > supportHip.x()
+        val isKneeBack = if (isFacingRightAppoggio) liftedKnee.x() < supportHip.x() else liftedKnee.x() > supportHip.x()
         val distNasoCaviglia = PoseAnalyzer.calculateDistance3D(nose, liftedAnkle)
 
-        // Se il ginocchio sta andando in avanti lo scartiamo. MA se il piede in 3D è attaccato alla testa (< 25cm),
-        // è un Penché o un anello estremo, quindi lo accettiamo forzatamente!
         if (!isKneeBack && distNasoCaviglia > 0.25f) return null
 
-        // 4. SENSORE PIEDE SOPRA LA TESTA (Marchio di fabbrica)
+        // 4. SENSORE PIEDE SOPRA LA TESTA
         if (liftedAnkle.y() > nose.y() + 0.15f) return null
 
         // 5. Calcolo Inclinazione Busto (Avanti)
-        val midHipX = (leftHip.x() + rightHip.x()) / 2f
-        val midHipY = (leftHip.y() + rightHip.y()) / 2f
-        val shoulderCenterX = (leftShoulder.x() + rightShoulder.x()) / 2f
-        val shoulderCenterY = (leftShoulder.y() + rightShoulder.y()) / 2f
-
-        val dx = shoulderCenterX - midHipX
-        val dy = midHipY - shoulderCenterY
-        val isTorsoForward = if (isFacingRight) dx > 0 else dx < 0
+        val dx = centroSpalleX - bacinoCenterX
+        val dy = bacinoY - spallaY
+        val isTorsoForward = if (isFacingRightAppoggio) dx > 0 else dx < 0
 
         val gradiBusto = abs(Math.toDegrees(atan2(dx.toDouble(), dy.toDouble())))
         val bustoOrizzontale = isTorsoForward && (gradiBusto in 60.0..120.0)
 
-        // 6. Apertura Spaccata Vettoriale in 3D
-        val midHipLandmark = NormalizedLandmark.create(midHipX, midHipY, (leftHip.z() + rightHip.z()) / 2f)
+        // 6. Apertura Spaccata
+        val midHipLandmark = NormalizedLandmark.create(bacinoCenterX, bacinoY, (leftHip.z() + rightHip.z()) / 2f)
         val aperturaSpaccata = PoseAnalyzer.calculateAngle3D(supportAnkle, midHipLandmark, liftedAnkle)
         if (aperturaSpaccata < 115.0) return null
 
-        // 7. Controllo Aiuto (Mani-Piede in 3D) e Relevé
+        // 7. Controllo Aiuto e Relevé
         val distPolsoSx = PoseAnalyzer.calculateDistance3D(landmarks[15], liftedAnkle)
         val distPolsoDx = PoseAnalyzer.calculateDistance3D(landmarks[16], liftedAnkle)
         val conAiuto = (distPolsoSx < 0.12f || distPolsoDx < 0.12f)
-        val inReleve = RegoleGinnastica.verificaReleve(landmarks, isAppoggioLeft)
+        val inReleve = RegoleGinnastica.verificaReleve(landmarks, isLeftLowest)
 
         // 8. Assegnazione Valori
         var valoreBase = 0.0
@@ -89,7 +123,7 @@ class EquilibrioPenche : Difficolta {
 
         if (!inReleve) valoreBase -= 0.10
 
-        // 9. Penalità (Oversplit protetto)
+        // 9. Penalità
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""

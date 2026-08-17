@@ -16,18 +16,59 @@ class EquilibrioTilt : Difficolta {
 
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftShoulder = landmarks[11]
         val rightShoulder = landmarks[12]
+
+        // ==========================================
+        // FIREWALL 1: ANTI-VOLO INTELLIGENTE
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
+        val altezzaTronco = kotlin.math.abs(bacinoY - spallaY)
+
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        val isLeftLowest = leftAnkle.y() > rightAnkle.y()
+        val lowestAnkleY = if (isLeftLowest) leftAnkle.y() else rightAnkle.y()
+        val lowestKneeAngle = if (isLeftLowest) leftKneeAngle else rightKneeAngle
+
+        // Se la caviglia scende, MA il ginocchio è piegato (come in un salto cosacco),
+        // è fisicamente impossibile che stia sorreggendo un equilibrio. È in volo!
+        if (lowestKneeAngle < 135.0) {
+            return null
+        }
+
+        // Se il piede più basso è troppo in alto rispetto al bacino, è in salto
+        if (lowestAnkleY < bacinoY + (altezzaTronco * 0.7f)) {
+            return null
+        }
+        // ==========================================
+
+        // ==========================================
+        // FIREWALL 2: ANTI-COSACCO (Requisito Spaccata)
+        // ==========================================
+        val isLeftStraight = leftKneeAngle > 135.0
+        val isRightStraight = rightKneeAngle > 135.0
+        val isLeftTucked = leftKneeAngle < 120.0
+        val isRightTucked = rightKneeAngle < 120.0
+
+        if ((isLeftStraight && isRightTucked) || (isRightStraight && isLeftTucked)) {
+            return null // È un Cosacco! Spegni il Grand Ecart Laterale.
+        }
+        // ==========================================
 
         val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
         val supportAnkle = if (isAppoggioLeft) leftAnkle else rightAnkle
         val liftedAnkle = if (isAppoggioLeft) rightAnkle else leftAnkle
 
         val midHipX = (leftHip.x() + rightHip.x()) / 2f
-        val midHipY = (leftHip.y() + rightHip.y()) / 2f
-        val midHipLandmark = NormalizedLandmark.create(midHipX, midHipY, (leftHip.z() + rightHip.z()) / 2f)
+        val midHipLandmark = NormalizedLandmark.create(midHipX,
+            bacinoY, (leftHip.z() + rightHip.z()) / 2f)
 
         // 1. Apertura Spaccata 3D
         val aperturaSpaccata = PoseAnalyzer.calculateAngle3D(supportAnkle, midHipLandmark, liftedAnkle)
@@ -44,9 +85,8 @@ class EquilibrioTilt : Difficolta {
 
         // 4. Calcolo Flessione Laterale (Tilt)
         val shoulderCenterX = (leftShoulder.x() + rightShoulder.x()) / 2f
-        val shoulderCenterY = (leftShoulder.y() + rightShoulder.y()) / 2f
         val dx = shoulderCenterX - midHipX
-        val dy = midHipY - shoulderCenterY
+        val dy = bacinoY - spallaY
         val gradiBusto = abs(Math.toDegrees(atan2(dx.toDouble(), dy.toDouble())))
 
         var valoreBase = 0.0

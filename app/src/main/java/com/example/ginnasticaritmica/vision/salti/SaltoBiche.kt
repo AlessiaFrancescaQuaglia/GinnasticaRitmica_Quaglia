@@ -8,7 +8,6 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 class SaltoBiche : Difficolta {
     override var nome = "SALTO BICHE"
 
-    // --- SENSORE DI ROTAZIONE (Memoria a breve termine) ---
     companion object {
         private var tempoUltimaRotazione: Long = 0L
         private var ultimaDirezioneSpalleDestra: Boolean? = null
@@ -17,81 +16,141 @@ class SaltoBiche : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        // =======================================================
-        // FASE 1: TRACCIAMENTO DELLA ROTAZIONE (En Tournant)
-        // =======================================================
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
+
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        // ==========================================
+        // NUOVO FIREWALL ANTI-EQUILIBRIO (Basato sul Femore)
+        // ==========================================
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
+        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
+
+        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
+            return null
+        }
+        // ==========================================
+
         val spallaSx = landmarks[11]
         val spallaDx = landmarks[12]
-        val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
 
+        // ==========================================
+        // DIREZIONE INFALLIBILE (Basata su X, non su Z)
+        // ==========================================
+        val centroBacinoX = (leftHip.x() + rightHip.x()) / 2f
+        val nose = landmarks[0]
+        val isFacingRight = nose.x() > centroBacinoX
+
+        val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
         if (ultimaDirezioneSpalleDestra == null) {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
         } else if (ultimaDirezioneSpalleDestra != isSpalleVersoDestra) {
-            // Trovato un cambio di fronte! La ginnasta sta ruotando.
             tempoUltimaRotazione = System.currentTimeMillis()
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
         }
 
-        // =======================================================
-        // FASE 2: RILEVAMENTO DELLA FORMA BICHE
-        // =======================================================
-        val leftToe = landmarks[31]
-        val rightToe = landmarks[32]
-        val leftHeel = landmarks[29]
-        val rightHeel = landmarks[30]
-        val isFacingRight = (leftToe.x() + rightToe.x()) > (leftHeel.x() + rightHeel.x())
+        // In un Biche, la gamba davanti è definita dal ginocchio che va più in avanti rispetto all'asse X
+        val isLeftFront = if (isFacingRight) leftKnee.x() > rightKnee.x() else leftKnee.x() < rightKnee.x()
 
-        val leftAnkle = landmarks[27]
-        val rightAnkle = landmarks[28]
-        val isLeftFront = if (isFacingRight) leftAnkle.x() > rightAnkle.x() else leftAnkle.x() < rightAnkle.x()
+        val frontHip = if (isLeftFront) leftHip else rightHip
+        val frontKnee = if (isLeftFront) leftKnee else rightKnee
+        val frontAnkle = if (isLeftFront) leftAnkle else rightAnkle
 
-        val frontHip = if (isLeftFront) landmarks[23] else landmarks[24]
-        val frontKnee = if (isLeftFront) landmarks[25] else landmarks[26]
-        val frontAnkle = if (isLeftFront) landmarks[27] else landmarks[28]
-
-        val backHip = if (isLeftFront) landmarks[24] else landmarks[23]
-        val backKnee = if (isLeftFront) landmarks[26] else landmarks[25]
-        val backAnkle = if (isLeftFront) landmarks[28] else landmarks[27]
+        val backHip = if (isLeftFront) rightHip else leftHip
+        val backKnee = if (isLeftFront) rightKnee else leftKnee
+        val backAnkle = if (isLeftFront) rightAnkle else leftAnkle
         val backToe = if (isLeftFront) landmarks[32] else landmarks[31]
 
-        // IL FIREWALL DEL BICHE
         val frontKneeAngle = PoseAnalyzer.calculateAngle3D(frontHip, frontKnee, frontAnkle)
-        if (frontKneeAngle > 140.0 || frontKneeAngle < 45.0) return null
 
-        // AMPIEZZA SPACCATA
-        val centroBacinoX = (landmarks[23].x() + landmarks[24].x()) / 2f
-        val centroBacinoY = (landmarks[23].y() + landmarks[24].y()) / 2f
+        // Requisito fondamentale del Biche: gamba davanti piegata a "cervo"
+        if (frontKneeAngle > 115.0 || frontKneeAngle < 35.0) return null
+
+        // ==========================================
+        // FIREWALL ANTI-COSACCO (Sviluppo Orizzontale)
+        // ==========================================
+        // In un salto Biche, la spaccata si sviluppa orizzontalmente (sagittale).
+        // La gamba posteriore (backKnee) va ALL'INDIETRO.
+        // Se il ginocchio posteriore punta dritto verso il soffitto (è più in alto del bacino),
+        // si tratta di un salto a sviluppo verticale (es. Salto Cosacco Alto)!
+        if (backKnee.y() < bacinoY - 0.05f) {
+            return null // Non è un Biche, spegni la classe e cedi il passo al Cosacco.
+        }
+        // ==========================================
+
+        val centroBacinoY = bacinoY
         val centroBacino = NormalizedLandmark.create(centroBacinoX, centroBacinoY, 0f)
-        val angoloSpaccata = PoseAnalyzer.calculateAngle3D(frontKnee, centroBacino, backKnee)
+
+        // CALCOLO SPACCATA IBRIDO
+        val angoloSpaccata3D = PoseAnalyzer.calculateAngle3D(frontKnee, centroBacino, backAnkle)
+
+        val v1x = frontKnee.x() - centroBacinoX
+        val v1y = frontKnee.y() - centroBacinoY
+        val v2x = backAnkle.x() - centroBacinoX
+        val v2y = backAnkle.y() - centroBacinoY
+        val dotProduct = v1x * v2x + v1y * v2y
+        val mag1 = kotlin.math.sqrt((v1x * v1x + v1y * v1y).toDouble())
+        val mag2 = kotlin.math.sqrt((v2x * v2x + v2y * v2y).toDouble())
+        var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dotProduct / (mag1 * mag2)))
+        if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
+
+        val angoloSpaccata = kotlin.math.max(angoloSpaccata3D, angoloSpaccata2D)
 
         if (angoloSpaccata < 130.0) return null
 
-        // =======================================================
-        // FASE 3: ASSEGNAZIONE PUNTEGGI (Dritto o En Tournant?)
-        // =======================================================
         val tempoTrascorsoDaRotazione = System.currentTimeMillis() - tempoUltimaRotazione
-        val isEnTournant = tempoTrascorsoDaRotazione < 1500L // 1.5 secondi di tolleranza
+        val isEnTournant = tempoTrascorsoDaRotazione < 1500L
 
-        var valoreBase = 0.20
-        val nose = landmarks[0]
         val backKneeAngle = PoseAnalyzer.calculateAngle3D(backHip, backKnee, backAnkle)
         val distanzaTestaPiede = PoseAnalyzer.calculateDistance3D(nose, backToe)
 
+        // ==========================================
+        // SENSORE DI FLESSIONE E BOUCLE (Nuova Logica)
+        // ==========================================
         val spallaCentroX = (spallaSx.x() + spallaDx.x()) / 2f
-        val isTorsoBentBack = if (isFacingRight) spallaCentroX < centroBacinoX - 0.1f else spallaCentroX > centroBacinoX + 0.1f
+        val spallaCentroY = (spallaSx.y() + spallaDx.y()) / 2f
+        val spostamentoSpalleDietro = if (isFacingRight) centroBacinoX - spallaCentroX else spallaCentroX - centroBacinoX
+        val schiacciamentoTroncoY = bacinoY - spallaCentroY
+        val distNasoBacino = PoseAnalyzer.calculateDistance3D(nose, centroBacino)
 
-        if (backKneeAngle <= 130.0 && distanzaTestaPiede < 0.35f) {
-            nome = if (isEnTournant) "BICHE EN TOURNANT + BOUCLE" else "SALTO BICHE + BOUCLE"
-            valoreBase = if (isEnTournant) 0.50 else 0.40
-        } else if (backKneeAngle > 140.0 && (isTorsoBentBack || distanzaTestaPiede < 0.40f)) {
-            nome = if (isEnTournant) "BICHE EN TOURNANT + FLESSIONE" else "SALTO BICHE + FLESSIONE"
-            valoreBase = if (isEnTournant) 0.50 else 0.40
+        val isFlessioneEvidente = distNasoBacino < 0.25f ||
+                spostamentoSpalleDietro > 0.25f ||
+                (schiacciamentoTroncoY < 0.10f && spostamentoSpalleDietro > 0.05f)
+
+        // Il Boucle ha la precedenza assoluta. Se il piede tocca la testa, è un anello!
+        val isBoucle = backKneeAngle <= 135.0 && distanzaTestaPiede <= 0.25f
+
+        // Flessione base se c'è l'inarcamento ma non c'è l'anello
+        val isFlessione = !isBoucle && (isFlessioneEvidente || (backKneeAngle > 135.0 && distanzaTestaPiede <= 0.20f))
+
+        var valoreBase = 0.20
+
+        if (isBoucle) {
+            nome = if (isEnTournant) "BICHE 180° (o Tournant) + BOUCLE" else "SALTO BICHE + BOUCLE"
+            valoreBase = if (isEnTournant) 0.60 else 0.40
+        } else if (isFlessione) {
+            nome = if (isEnTournant) "BICHE 180° (o Tournant) + FLESS." else "SALTO BICHE + FLESSIONE"
+            valoreBase = if (isEnTournant) 0.60 else 0.40
         } else {
-            nome = if (isEnTournant) "BICHE EN TOURNANT" else "SALTO BICHE"
-            valoreBase = if (isEnTournant) 0.30 else 0.20
+            nome = if (isEnTournant) "BICHE ROTAZIONE 180° (o Tournant)" else "SALTO BICHE"
+            valoreBase = if (isEnTournant) 0.40 else 0.20
         }
 
-        // CALCOLO PENALITÀ
+        // PENALITÀ
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
@@ -105,12 +164,11 @@ class SaltoBiche : Difficolta {
             msgErrore = "Apertura spaccata insufficiente"
         }
 
-        if (!nome.contains("BOUCLE") && isValida && backKneeAngle < 150.0) {
+        if (!nome.contains("BOUCLE") && isValida && backKneeAngle < 150.0 && !isFlessioneEvidente) {
             penalita += 0.30
             if (msgErrore.isEmpty()) msgErrore = "Gamba posteriore piegata"
         }
 
-        // Se valido, resettiamo la rotazione per non "falsare" il salto successivo
         if (isValida) tempoUltimaRotazione = 0L
 
         return RisultatoDifficolta(isValida, if (isValida) valoreBase else 0.0, penalita, false, msgErrore)

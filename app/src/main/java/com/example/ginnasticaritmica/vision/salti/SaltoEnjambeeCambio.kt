@@ -9,12 +9,10 @@ import kotlin.math.abs
 class SaltoEnjambeeCambio : Difficolta {
     override var nome = "ENJAMBÉE CON CAMBIO"
 
-    // --- DOPPIA MEMORIA (Rotazione + Slancio) ---
     companion object {
         private var tempoUltimoSlancio: Long = 0L
         private var gambaSlancioIsLeft: Boolean? = null
         private var isSlancioTeso: Boolean = true
-
         private var tempoUltimaRotazione: Long = 0L
         private var ultimaDirezioneSpalleDestra: Boolean? = null
     }
@@ -22,11 +20,45 @@ class SaltoEnjambeeCambio : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        // 1. TRACCIAMENTO DELLA ROTAZIONE
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
+
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        // Usiamo la lunghezza del femore come unità di misura invariabile (immune agli inarcamenti)
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        // Una gamba è piantata a terra SOLO se scende in profondità (più del femore)
+        // ED è sufficientemente tesa per sostenere il peso (angolo > 135°).
+        // Nel Biche la gamba scende ma è piegata a 90°, quindi il Firewall la lascerà passare!
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+        // Sicurezza extra: se una caviglia è paurosamente in basso (vicino al fondo dello schermo)
+        // e lontana dal bacino, spegniamo i salti a prescindere dall'angolo.
+        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
+        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
+
+        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
+            return null // Piede a terra confermato, passa agli equilibri!
+        }
+
+
+
+
+
         val spallaSx = landmarks[11]
         val spallaDx = landmarks[12]
-        val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
 
+        val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
         if (ultimaDirezioneSpalleDestra == null) {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
         } else if (ultimaDirezioneSpalleDestra != isSpalleVersoDestra) {
@@ -34,16 +66,9 @@ class SaltoEnjambeeCambio : Difficolta {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
         }
 
-        // 2. TRACCIAMENTO DELLO SLANCIO
-        val leftAnkle = landmarks[27]
-        val rightAnkle = landmarks[28]
-        val leftKnee = landmarks[25]
-        val rightKnee = landmarks[26]
-        val leftHip = landmarks[23]
-        val rightHip = landmarks[24]
-
-        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
-        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+        val isFacingRight = spallaDx.z() < spallaSx.z()
+        val leftToe = landmarks[31]
+        val rightToe = landmarks[32]
 
         val yDiff = leftAnkle.y() - rightAnkle.y()
         if (abs(yDiff) > 0.15f) {
@@ -61,13 +86,6 @@ class SaltoEnjambeeCambio : Difficolta {
             }
         }
 
-        // 3. RILEVAMENTO SPACCATA
-        val leftToe = landmarks[31]
-        val rightToe = landmarks[32]
-        val leftHeel = landmarks[29]
-        val rightHeel = landmarks[30]
-        val isFacingRight = (leftToe.x() + rightToe.x()) > (leftHeel.x() + rightHeel.x())
-
         val isLeftFront = if (isFacingRight) leftAnkle.x() > rightAnkle.x() else leftAnkle.x() < rightAnkle.x()
 
         val frontHip = if (isLeftFront) leftHip else rightHip
@@ -80,16 +98,30 @@ class SaltoEnjambeeCambio : Difficolta {
         val backToe = if (isLeftFront) rightToe else leftToe
 
         val frontKneeAngle = PoseAnalyzer.calculateAngle3D(frontHip, frontKnee, frontAnkle)
-        if (frontKneeAngle < 150.0) return null
+        if (frontKneeAngle < 145.0) return null
 
         val centroBacinoX = (leftHip.x() + rightHip.x()) / 2f
         val centroBacinoY = (leftHip.y() + rightHip.y()) / 2f
         val centroBacino = NormalizedLandmark.create(centroBacinoX, centroBacinoY, 0f)
-        val angoloSpaccata = PoseAnalyzer.calculateAngle3D(frontAnkle, centroBacino, backAnkle)
+
+        // ==========================================
+        // CALCOLO SPACCATA IBRIDO
+        // ==========================================
+        val angoloSpaccata3D = PoseAnalyzer.calculateAngle3D(frontAnkle, centroBacino, backAnkle)
+        val v1x = frontAnkle.x() - centroBacinoX
+        val v1y = frontAnkle.y() - centroBacinoY
+        val v2x = backAnkle.x() - centroBacinoX
+        val v2y = backAnkle.y() - centroBacinoY
+        val dotProduct = v1x * v2x + v1y * v2y
+        val mag1 = kotlin.math.sqrt((v1x * v1x + v1y * v1y).toDouble())
+        val mag2 = kotlin.math.sqrt((v2x * v2x + v2y * v2y).toDouble())
+        var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dotProduct / (mag1 * mag2)))
+        if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
+
+        val angoloSpaccata = kotlin.math.max(angoloSpaccata3D, angoloSpaccata2D)
 
         if (angoloSpaccata < 130.0) return null
 
-        // 4. MATCH TEMPORALE COMPLETO (Cambio + Rotazione)
         val tempoTrascorsoSlancio = System.currentTimeMillis() - tempoUltimoSlancio
 
         if (tempoTrascorsoSlancio < 1500L && gambaSlancioIsLeft != null && isLeftFront != gambaSlancioIsLeft) {
@@ -100,35 +132,46 @@ class SaltoEnjambeeCambio : Difficolta {
             val nose = landmarks[0]
             val backKneeAngle = PoseAnalyzer.calculateAngle3D(backHip, backKnee, backAnkle)
             val distanzaTestaPiede = PoseAnalyzer.calculateDistance3D(nose, backToe)
+
+            // ==========================================
+            // SENSORE DI FLESSIONE ANTI-GLITCH (Core-Based)
+            // ==========================================
             val spallaCentroX = (spallaSx.x() + spallaDx.x()) / 2f
-            val isTorsoBentBack = if (isFacingRight) spallaCentroX < centroBacinoX - 0.1f else spallaCentroX > centroBacinoX + 0.1f
+            val spallaCentroY = (spallaSx.y() + spallaDx.y()) / 2f
+            val spostamentoSpalleDietro = if (isFacingRight) centroBacinoX - spallaCentroX else spallaCentroX - centroBacinoX
 
-            var hasBoucleOrFlessione = false
-            var suffisso = ""
+            val schiacciamentoTroncoY = bacinoY - spallaCentroY
+            val distNasoBacino = PoseAnalyzer.calculateDistance3D(nose, centroBacino)
 
-            if (backKneeAngle <= 130.0 && distanzaTestaPiede < 0.35f) {
-                hasBoucleOrFlessione = true
-                suffisso = " + BOUCLE"
-            } else if (backKneeAngle > 140.0 && (isTorsoBentBack || distanzaTestaPiede < 0.40f)) {
-                hasBoucleOrFlessione = true
-                suffisso = " + FLESS."
-            }
+            // Verifichiamo se il busto è palesemente inarcato
+            val isFlessioneEvidente = distNasoBacino < 0.25f ||
+                    spostamentoSpalleDietro > 0.25f ||
+                    (schiacciamentoTroncoY < 0.10f && spostamentoSpalleDietro > 0.05f)
 
-            // APPLICAZIONE DEI VALORI DA CODICE DEI PUNTEGGI
+            val isBoucle = backKneeAngle <= 130.0 && distanzaTestaPiede <= 0.22f && !isFlessioneEvidente
+            val isFlessione = isFlessioneEvidente || (backKneeAngle > 130.0 && distanzaTestaPiede <= 0.20f)
+            // ==========================================
+
             var valoreBase = 0.0
             val prefissoRotazione = if (isEnTournant) "CAMBIO TOURNANT" else "CAMBIO"
 
             if (isSlancioTeso) {
-                if (hasBoucleOrFlessione) {
-                    nome = "$prefissoRotazione (Tesa)$suffisso"
-                    valoreBase = if (isEnTournant) 0.80 else 0.70 // Cod. 1.3608.1 / 1.3608.2
+                if (isBoucle) {
+                    nome = "$prefissoRotazione (Tesa) + BOUCLE"
+                    valoreBase = if (isEnTournant) 0.80 else 0.70
+                } else if (isFlessione) {
+                    nome = "$prefissoRotazione (Tesa) + FLESS."
+                    valoreBase = if (isEnTournant) 0.80 else 0.70
                 } else {
                     nome = "$prefissoRotazione (Tesa)"
-                    valoreBase = if (isEnTournant) 0.60 else 0.50 // Cod. 1.3606
+                    valoreBase = if (isEnTournant) 0.60 else 0.50
                 }
             } else {
-                if (hasBoucleOrFlessione) {
-                    nome = "$prefissoRotazione (Flessa)$suffisso"
+                if (isBoucle) {
+                    nome = "$prefissoRotazione (Flessa) + BOUCLE"
+                    valoreBase = if (isEnTournant) 0.70 else 0.60
+                } else if (isFlessione) {
+                    nome = "$prefissoRotazione (Flessa) + FLESS."
                     valoreBase = if (isEnTournant) 0.70 else 0.60
                 } else {
                     nome = "$prefissoRotazione (Flessa)"
@@ -149,14 +192,20 @@ class SaltoEnjambeeCambio : Difficolta {
                 msgErrore = "Apertura spaccata insufficiente"
             }
 
-            // Resettiamo le memorie
+            // --- PERDONO PENALITÀ GINOCCHIO IN FLESSIONE EXTREMA ---
+            if (!nome.contains("BOUCLE") && isValida && !isFlessioneEvidente) {
+                if (backKneeAngle < 150.0) {
+                    penalita += 0.30
+                    if (msgErrore.isEmpty()) msgErrore = "Gamba posteriore piegata"
+                }
+            }
+
             tempoUltimoSlancio = 0L
             gambaSlancioIsLeft = null
             if (isValida) tempoUltimaRotazione = 0L
 
             return RisultatoDifficolta(isValida, if (isValida) valoreBase else 0.0, penalita, false, msgErrore)
         }
-
         return null
     }
 }

@@ -14,19 +14,43 @@ class EquilibrioArabesque : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        val isAppoggioLeft = landmarks[27].y() > landmarks[28].y()
-        val spalla = if (isAppoggioLeft) landmarks[12] else landmarks[11]
-        val anca = if (isAppoggioLeft) landmarks[24] else landmarks[23]
-        val ginocchio = if (isAppoggioLeft) landmarks[26] else landmarks[25]
-        val caviglia = if (isAppoggioLeft) landmarks[28] else landmarks[27]
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
 
-        val supportHip = if (isAppoggioLeft) landmarks[23] else landmarks[24]
-        val supportKnee = if (isAppoggioLeft) landmarks[25] else landmarks[26]
-        val supportAnkle = if (isAppoggioLeft) landmarks[27] else landmarks[28]
+        // ==========================================
+        // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+        if (!isLeftPlanted && !isRightPlanted) {
+            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
+        }
+        // ==========================================
+
+        val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
+        val spalla = if (isAppoggioLeft) landmarks[12] else landmarks[11]
+        val anca = if (isAppoggioLeft) rightHip else leftHip
+        val ginocchio = if (isAppoggioLeft) rightKnee else leftKnee
+        val caviglia = if (isAppoggioLeft) rightAnkle else leftAnkle
+
+        val supportHip = if (isAppoggioLeft) leftHip else rightHip
+        val supportKnee = if (isAppoggioLeft) leftKnee else rightKnee
+        val supportAnkle = if (isAppoggioLeft) leftAnkle else rightAnkle
 
         // Controllo base sulle ginocchia in 3D (Entrambe devono essere tese)
-        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(landmarks[23], landmarks[25], landmarks[27])
-        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(landmarks[24], landmarks[26], landmarks[28])
+        // Riutilizziamo le variabili calcolate nel Firewall!
         if (leftKneeAngle < 130.0 || rightKneeAngle < 130.0) return null
 
         val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
@@ -39,8 +63,8 @@ class EquilibrioArabesque : Difficolta {
 
         val shoulderCenterX = (landmarks[11].x() + landmarks[12].x()) / 2f
         val shoulderCenterY = (landmarks[11].y() + landmarks[12].y()) / 2f
-        val hipCenterX = (landmarks[23].x() + landmarks[24].x()) / 2f
-        val hipCenterY = (landmarks[23].y() + landmarks[24].y()) / 2f
+        val hipCenterX = (leftHip.x() + rightHip.x()) / 2f
+        val hipCenterY = bacinoY
 
         val dx = shoulderCenterX - hipCenterX
         val dy = hipCenterY - shoulderCenterY

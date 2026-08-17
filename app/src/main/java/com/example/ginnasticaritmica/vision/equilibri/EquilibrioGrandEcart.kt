@@ -25,16 +25,56 @@ class EquilibrioGrandEcart : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
+        // ==========================================
+        // FIREWALL 1: ANTI-VOLO INTELLIGENTE
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
+        val altezzaTronco = kotlin.math.abs(bacinoY - spallaY)
+
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        val isLeftLowest = leftAnkle.y() > rightAnkle.y()
+        val lowestAnkleY = if (isLeftLowest) leftAnkle.y() else rightAnkle.y()
+        val lowestKneeAngle = if (isLeftLowest) leftKneeAngle else rightKneeAngle
+
+        // Se la caviglia scende, MA il ginocchio è piegato (come in un salto cosacco),
+        // è fisicamente impossibile che stia sorreggendo un Grand Ecart. È in volo!
+        if (lowestKneeAngle < 135.0) {
+            return null
+        }
+
+        // Se il piede più basso è troppo in alto rispetto al bacino, è in salto
+        if (lowestAnkleY < bacinoY + (altezzaTronco * 0.7f)) {
+            return null
+        }
+        // ==========================================
+
+        // ==========================================
+        // FIREWALL 2: ANTI-COSACCO (Requisito Spaccata)
+        // ==========================================
+        // Un "Grand Écart" richiede che ENTRAMBE le gambe siano tese.
+        // Se una è tesa e l'altra è rannicchiata, spegniamo l'equilibrio!
+        val isLeftStraight = leftKneeAngle > 135.0
+        val isRightStraight = rightKneeAngle > 135.0
+        val isLeftTucked = leftKneeAngle < 120.0
+        val isRightTucked = rightKneeAngle < 120.0
+
+        if ((isLeftStraight && isRightTucked) || (isRightStraight && isLeftTucked)) {
+            return null
+        }
+        // ==========================================
+
         // 1. Identificazione Gamba di Appoggio
-        val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
-        val supportAnkle = if (isAppoggioLeft) leftAnkle else rightAnkle
-        val liftedAnkle = if (isAppoggioLeft) rightAnkle else leftAnkle
-        val supportHip = if (isAppoggioLeft) leftHip else rightHip
-        val liftedKnee = if (isAppoggioLeft) rightKnee else leftKnee
+        val supportAnkle = if (isLeftLowest) leftAnkle else rightAnkle
+        val liftedAnkle = if (isLeftLowest) rightAnkle else leftAnkle
+        val supportHip = if (isLeftLowest) leftHip else rightHip
+        val liftedKnee = if (isLeftLowest) rightKnee else leftKnee
 
         // 2. DIREZIONE INFALLIBILE (Tallone vs Punta: immune al relevé)
-        val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
-        val supportToe = if (isAppoggioLeft) landmarks[31] else landmarks[32]
+        val supportHeel = if (isLeftLowest) landmarks[29] else landmarks[30]
+        val supportToe = if (isLeftLowest) landmarks[31] else landmarks[32]
         val isFacingRight = supportToe.x() > supportHeel.x()
 
         // 3. CONTROLLO DIREZIONE GAMBA (Il ginocchio DEVE andare avanti)
@@ -48,12 +88,10 @@ class EquilibrioGrandEcart : Difficolta {
 
         // 5. Calcolo Inclinazione Busto (Solo flessione indietro)
         val midHipX = (leftHip.x() + rightHip.x()) / 2f
-        val midHipY = (leftHip.y() + rightHip.y()) / 2f
         val shoulderCenterX = (leftShoulder.x() + rightShoulder.x()) / 2f
-        val shoulderCenterY = (leftShoulder.y() + rightShoulder.y()) / 2f
 
         val dx = shoulderCenterX - midHipX
-        val dy = midHipY - shoulderCenterY
+        val dy = bacinoY - spallaY
         val isTorsoBackward = if (isFacingRight) dx < 0 else dx > 0
 
         var gradiBustoIndietro = 0.0
@@ -62,12 +100,13 @@ class EquilibrioGrandEcart : Difficolta {
         }
 
         // 6. Apertura Spaccata Vettoriale in 3D (Calcolo perfetto anche di sbieco)
-        val midHipLandmark = NormalizedLandmark.create(midHipX, midHipY, (leftHip.z() + rightHip.z()) / 2f)
+        val midHipLandmark = NormalizedLandmark.create(midHipX,
+            bacinoY, (leftHip.z() + rightHip.z()) / 2f)
         val aperturaSpaccata = PoseAnalyzer.calculateAngle3D(supportAnkle, midHipLandmark, liftedAnkle)
         if (aperturaSpaccata < 130.0) return null
 
         // 7. Controllo Relevé e Aiuto (Mani-Piede in 3D)
-        val inReleve = RegoleGinnastica.verificaReleve(landmarks, isAppoggioLeft)
+        val inReleve = RegoleGinnastica.verificaReleve(landmarks, isLeftLowest)
 
         val distPolsoSx = PoseAnalyzer.calculateDistance3D(landmarks[15], liftedAnkle)
         val distPolsoDx = PoseAnalyzer.calculateDistance3D(landmarks[16], liftedAnkle)

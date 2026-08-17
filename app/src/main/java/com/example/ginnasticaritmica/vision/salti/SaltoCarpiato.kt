@@ -6,55 +6,131 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 
 class SaltoCarpiato : Difficolta {
-    override val nome = "SALTO CARPIATO"
+    override var nome = "SALTO CARPIATO"
+
+    companion object {
+        private var tempoUltimaRotazione: Long = 0L
+        private var ultimaDirezioneSpalleDestra: Boolean? = null
+    }
 
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        // 1. Entrambe le gambe DEVONO essere tese
-        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(landmarks[23], landmarks[25], landmarks[27])
-        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(landmarks[24], landmarks[26], landmarks[28])
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
 
-        if (leftKneeAngle < 150.0 || rightKneeAngle < 150.0) return null // Gambe piegate = scartato
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (landmarks[11].y() + landmarks[12].y()) / 2f
+        val altezzaTronco = kotlin.math.abs(bacinoY - spallaY)
 
-        // 2. Le gambe devono essere sollevate orizzontalmente in avanti
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        // ==========================================
+        // FIREWALL ANTI-EQUILIBRIO (Basato sul Femore)
+        // ==========================================
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
+        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
+
+        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
+            return null
+        }
+
+        // ==========================================
+        // FIREWALL ANTI-ENJAMBÉE E PROSPETTIVA
+        // ==========================================
+        val distSpalleX = kotlin.math.abs(landmarks[11].x() - landmarks[12].x())
+        val distCaviglieX = kotlin.math.abs(leftAnkle.x() - rightAnkle.x())
+
+        // 1. Se la ginnasta è vista di PROFILO (spalle quasi sovrapposte su asse X),
+        // è impossibile valutare un carpiato. Sicuramente è un salto sagittale (Enjambée).
+        if (distSpalleX < 0.08f) {
+            return null
+        }
+
+        // 2. Se è vista di FRONTE, ma le caviglie non sono sufficientemente aperte di lato
+        // (sono larghe appena quanto le spalle), significa che una gamba va avanti e una indietro!
+        if (distCaviglieX < distSpalleX * 1.2f) {
+            return null
+        }
+        // ==========================================
+
+        // ==========================================
+        // REQUISITI CARPIATO (Maglie Flessibili)
+        // ==========================================
+        if (leftKneeAngle < 120.0 || rightKneeAngle < 120.0) return null
+
+        if (leftAnkle.y() > bacinoY + 0.20f || rightAnkle.y() > bacinoY + 0.20f) return null
+
+        val centroBacino = NormalizedLandmark.create((leftHip.x() + rightHip.x()) / 2f, bacinoY, 0f)
+
+        val angoloDivaricata = PoseAnalyzer.calculateAngle3D(leftAnkle, centroBacino, rightAnkle)
+        if (angoloDivaricata < 120.0) return null
+
+        // Tracciamento Rotazione
+        val spallaSx = landmarks[11]
         val spallaDx = landmarks[12]
-        val ancaDx = landmarks[24]
-        val ginocchioDx = landmarks[26]
+        val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
 
-        val altezzaGambe = PoseAnalyzer.calculateAngle3D(spallaDx, ancaDx, ginocchioDx)
-        if (altezzaGambe > 120.0) return null // Gambe puntate a terra
+        if (ultimaDirezioneSpalleDestra == null) {
+            ultimaDirezioneSpalleDestra = isSpalleVersoDestra
+        } else if (ultimaDirezioneSpalleDestra != isSpalleVersoDestra) {
+            tempoUltimaRotazione = System.currentTimeMillis()
+            ultimaDirezioneSpalleDestra = isSpalleVersoDestra
+        }
 
-        // 3. Flessione del Busto e Tocco Mani-Piedi
-        val polsoSx = landmarks[15]
-        val polsoDx = landmarks[16]
-        val puntaSx = landmarks[31]
-        val puntaDx = landmarks[32]
+        // ==========================================
+        // SENSORE DI FLESSIONE (Carpiato Profondo)
+        // ==========================================
+        val nose = landmarks[0]
+        val distNasoBacino = PoseAnalyzer.calculateDistance3D(nose, centroBacino)
 
-        val distPolsoPuntaSx = PoseAnalyzer.calculateDistance3D(polsoSx, puntaSx)
-        val distPolsoPuntaDx = PoseAnalyzer.calculateDistance3D(polsoDx, puntaDx)
+        val isCarpiatoFlesso = distNasoBacino < 0.25f || altezzaTronco < 0.15f
 
-        // Se le mani sono lontane dai piedi, il busto non è chiuso a carpiato.
-        if (distPolsoPuntaSx > 0.35f && distPolsoPuntaDx > 0.35f) return null
+        val tempoTrascorsoDaRotazione = System.currentTimeMillis() - tempoUltimaRotazione
+        val isEnTournant = tempoTrascorsoDaRotazione < 1500L
 
-        // 4. Valutazione e Penalità (Da Codice dei Punteggi)
-        var valoreBase = 0.30 // Valore da tabella per il Carpiato
+        var valoreBase = 0.0
+
+        if (isCarpiatoFlesso) {
+            nome = if (isEnTournant) "CARPIATO TOURNANT + FLESSIONE" else "SALTO CARPIATO PROFONDO"
+            valoreBase = if (isEnTournant) 0.50 else 0.40
+        } else {
+            nome = if (isEnTournant) "SALTO CARPIATO EN TOURNANT" else "SALTO CARPIATO"
+            valoreBase = if (isEnTournant) 0.40 else 0.30
+        }
+
+        // ==========================================
+        // PENALITÀ SULL'APERTURA
+        // ==========================================
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
 
-        // Valutiamo l'altezza delle gambe rispetto al bacino (deviazioni di forma)
-        if (altezzaGambe <= 90.0) {
-            penalita += 0.0 // Gambe perfette all'orizzontale o più su
-        } else if (altezzaGambe in 90.1..105.0) {
-            penalita += 0.10 // Piccola deviazione
-        } else if (altezzaGambe in 105.1..115.0) {
-            penalita += 0.30 // Media deviazione
+        val avgAnkleY = (leftAnkle.y() + rightAnkle.y()) / 2f
+
+        if (avgAnkleY <= bacinoY + 0.05f) {
+            penalita += 0.0
+        } else if (avgAnkleY <= bacinoY + 0.12f) {
+            penalita += 0.10
+        } else if (avgAnkleY <= bacinoY + 0.20f) {
+            penalita += 0.30
         } else {
             penalita += 0.50
             isValida = false
-            msgErrore = "Gambe troppo basse"
+            msgErrore = "Elevazione gambe e divaricata insufficiente"
         }
+
+        if (isValida) tempoUltimaRotazione = 0L
 
         return RisultatoDifficolta(isValida, if (isValida) valoreBase else 0.0, penalita, false, msgErrore)
     }

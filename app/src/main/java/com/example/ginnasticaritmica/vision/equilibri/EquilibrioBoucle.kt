@@ -12,11 +12,36 @@ class EquilibrioBoucle : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
+
+        // ==========================================
+        // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+        if (!isLeftPlanted && !isRightPlanted) {
+            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
+        }
+        // ==========================================
+
         // 1. Identificazione Gamba di Appoggio e Gamba Libera
-        val isAppoggioLeft = landmarks[27].y() > landmarks[28].y()
+        val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
         val isLeftLifted = !isAppoggioLeft
 
-        val cavigliaLibera = if (isAppoggioLeft) landmarks[28] else landmarks[27]
+        val cavigliaLibera = if (isAppoggioLeft) rightAnkle else leftAnkle
         val spallaCentroY = (landmarks[11].y() + landmarks[12].y()) / 2f
 
         // --- SUPER FILTRO ALTEZZA ---
@@ -24,22 +49,22 @@ class EquilibrioBoucle : Difficolta {
             return null
         }
 
-        val ancaAppoggio = if (isAppoggioLeft) landmarks[23] else landmarks[24]
-        val ginocchioAppoggio = if (isAppoggioLeft) landmarks[25] else landmarks[26]
-        val cavigliaAppoggio = if (isAppoggioLeft) landmarks[27] else landmarks[28]
+        val ancaAppoggio = if (isAppoggioLeft) leftHip else rightHip
+        val ginocchioAppoggio = if (isAppoggioLeft) leftKnee else rightKnee
+        val cavigliaAppoggio = if (isAppoggioLeft) leftAnkle else rightAnkle
 
-        val ancaLibera = if (isLeftLifted) landmarks[23] else landmarks[24]
-        val ginocchioSollevato = if (isLeftLifted) landmarks[25] else landmarks[26]
-        val cavigliaSollevata = if (isLeftLifted) landmarks[27] else landmarks[28]
+        val ancaLibera = if (isLeftLifted) leftHip else rightHip
+        val ginocchioSollevato = if (isLeftLifted) leftKnee else rightKnee
+        val cavigliaSollevata = if (isLeftLifted) leftAnkle else rightAnkle
         val nose = landmarks[0]
 
         // 2. Controllo Ginocchio di Appoggio (Deve essere teso)
-        val angoloAppoggio = PoseAnalyzer.calculateAngle3D(ancaAppoggio, ginocchioAppoggio, cavigliaAppoggio)
+        val angoloAppoggio = if (isAppoggioLeft) leftKneeAngle else rightKneeAngle
         if (angoloAppoggio < 150.0) return null
 
         // --- 3. NUOVO FIREWALL ANTI-PLANCHE/ARABESQUE ---
         // Se la gamba sollevata è dritta, è fisicamente impossibile che sia un Boucle!
-        val flessioneGinocchioLibero = PoseAnalyzer.calculateAngle3D(ancaLibera, ginocchioSollevato, cavigliaSollevata)
+        val flessioneGinocchioLibero = if (isLeftLifted) leftKneeAngle else rightKneeAngle
         if (flessioneGinocchioLibero > 140.0) {
             return null // Gamba tesa -> Blocca tutto e lascia lavorare la classe Arabesque/Planche!
         }

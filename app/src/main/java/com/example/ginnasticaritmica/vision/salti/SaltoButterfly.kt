@@ -13,19 +13,43 @@ class SaltoButterfly : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        val leftAnkle = landmarks[27]
-        val rightAnkle = landmarks[28]
-        val leftKnee = landmarks[25]
-        val rightKnee = landmarks[26]
+
+        // ==========================================
+        // FIREWALL DEFINITIVO ANTI-EQUILIBRIO (Anatomico)
+        // ==========================================
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
 
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (landmarks[11].y() + landmarks[12].y()) / 2f
+        val altezzaTronco = kotlin.math.abs(bacinoY - spallaY)
+
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        // Una gamba è piantata a terra se:
+        // 1. Scende sotto il bacino di una misura proporzionale al busto (tracciamento perfetto)
+        // OPPURE
+        // 2. Scende anche di poco, ma il ginocchio è dritto a sorreggere il peso (tracciamento rotto/schermo piatto)
+
+        val isLeftPlanted = (leftAnkle.y() > bacinoY + (altezzaTronco * 0.6f)) ||
+                (leftAnkle.y() > bacinoY + 0.05f && leftKneeAngle > 150.0)
+
+        val isRightPlanted = (rightAnkle.y() > bacinoY + (altezzaTronco * 0.6f)) ||
+                (rightAnkle.y() > bacinoY + 0.05f && rightKneeAngle > 150.0)
+
+        if (isLeftPlanted || isRightPlanted) {
+            return null // Piede a terra! Spegni immediatamente la classe dei salti.
+        }
+        // ==========================================
         val spallaSx = landmarks[11]
         val spallaDx = landmarks[12]
 
         // 1. FIREWALL GAMBE: Devono essere dritte
-        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
-        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
         if (leftKneeAngle < 140.0 || rightKneeAngle < 140.0) return null
 
         // 2. FIREWALL ALTEZZA: È un salto in volo

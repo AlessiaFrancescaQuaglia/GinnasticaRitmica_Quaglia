@@ -12,19 +12,47 @@ class EquilibrioAttitude : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        val leftHip = landmarks[23]
+        val rightHip = landmarks[24]
+        val leftKnee = landmarks[25]
+        val rightKnee = landmarks[26]
+        val leftAnkle = landmarks[27]
+        val rightAnkle = landmarks[28]
+
+        // ==========================================
+        // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
+        // ==========================================
+        val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
+        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+
+        // Una gamba sorregge il corpo solo se scende dritta verso terra
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+        // In un equilibrio, ALMENO UNA gamba DEVE essere piantata a terra!
+        // Se nessuna delle due gambe è piantata, la ginnasta sta palesemente volando.
+        if (!isLeftPlanted && !isRightPlanted) {
+            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
+        }
+        // ==========================================
+
         // 1. Identificazione gamba sollevata (Quella con la Y minore è più in alto)
-        val isLeftLifted = landmarks[27].y() < landmarks[28].y()
+        val isLeftLifted = leftAnkle.y() < rightAnkle.y()
         val isAppoggioLeft = !isLeftLifted
 
         val spalla = if (isLeftLifted) landmarks[11] else landmarks[12]
-        val anca = if (isLeftLifted) landmarks[23] else landmarks[24]
-        val ginocchioSollevato = if (isLeftLifted) landmarks[25] else landmarks[26]
-        val cavigliaSollevata = if (isLeftLifted) landmarks[27] else landmarks[28]
+        val anca = if (isLeftLifted) leftHip else rightHip
+        val ginocchioSollevato = if (isLeftLifted) leftKnee else rightKnee
+        val cavigliaSollevata = if (isLeftLifted) leftAnkle else rightAnkle
         val puntaLibera = if (isLeftLifted) landmarks[31] else landmarks[32] // Punta del piede
 
-        val ancaAppoggio = if (isAppoggioLeft) landmarks[23] else landmarks[24]
-        val ginocchioAppoggio = if (isAppoggioLeft) landmarks[25] else landmarks[26]
-        val cavigliaAppoggio = if (isAppoggioLeft) landmarks[27] else landmarks[28]
+        val ancaAppoggio = if (isAppoggioLeft) leftHip else rightHip
+        val ginocchioAppoggio = if (isAppoggioLeft) leftKnee else rightKnee
+        val cavigliaAppoggio = if (isAppoggioLeft) leftAnkle else rightAnkle
 
         // --- 2. FILTRO ANTI-PASSÉ (Il Firewall) ---
         // Se la punta del piede sollevato è attaccata al ginocchio di terra, NON è un'Attitude!
