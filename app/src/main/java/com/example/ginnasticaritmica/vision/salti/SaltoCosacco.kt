@@ -57,8 +57,7 @@ class SaltoCosacco : Difficolta {
         }
 
         // ==========================================
-        // IDENTIFICAZIONE GAMBE (Cosacco = 1 tesa, 1 piegata)
-        // MAGLIE ALLARGATE PER LA VELOCITÀ DI VOLO
+        // IDENTIFICAZIONE GAMBE
         // ==========================================
         val isLeftStraight = leftKneeAngle > 135.0
         val isRightStraight = rightKneeAngle > 135.0
@@ -70,19 +69,39 @@ class SaltoCosacco : Difficolta {
         }
 
         // ==========================================
-        // FIREWALL ANTI-ENJAMBÉE / ANTI-BOUCLE
+        // NUOVO FIREWALL DEFINITIVO: ANTI-SPACCATA
+        // (Salva Jeté, Enjambée, Biche e Butterfly)
         // ==========================================
-        val isFacingRight = nose.x() > bacinoX
-        val tuckedKnee = if (isLeftStraight) rightKnee else leftKnee
-        val straightKnee = if (isLeftStraight) leftKnee else rightKnee
+        val centroBacino = NormalizedLandmark.create(bacinoX, bacinoY, 0f)
+        val angoloFemorale3D = PoseAnalyzer.calculateAngle3D(leftKnee, centroBacino, rightKnee)
 
-        // In un salto sagittale (Enjambée), la gamba tesa va avanti e la gamba piegata va indietro (Boucle).
-        // In un Cosacco, ENTRAMBE le ginocchia devono stare davanti (o sotto) al bacino!
-        val isTuckedBackward = if (isFacingRight) tuckedKnee.x() < bacinoX else tuckedKnee.x() > bacinoX
-        val isStraightForward = if (isFacingRight) straightKnee.x() > bacinoX else straightKnee.x() < bacinoX
+        // Calcolo ibrido 2D per sopravvivere alle rotazioni
+        val vLKx = leftKnee.x() - bacinoX
+        val vLKy = leftKnee.y() - bacinoY
+        val vRKx = rightKnee.x() - bacinoX
+        val vRKy = rightKnee.y() - bacinoY
+        val dotFem = (vLKx * vRKx) + (vLKy * vRKy)
+        val magLK = kotlin.math.sqrt((vLKx * vLKx + vLKy * vLKy).toDouble())
+        val magRK = kotlin.math.sqrt((vRKx * vRKx + vRKy * vRKy).toDouble())
+        var angoloFemorale2D = Math.toDegrees(kotlin.math.acos(dotFem / (magLK * magRK)))
+        if (angoloFemorale2D.isNaN()) angoloFemorale2D = 0.0
 
-        if (isTuckedBackward && isStraightForward) {
-            return null // È un salto con spaccata sagittale! Spegni il Cosacco e cedi il posto all'Enjambée.
+        val angoloFemorale = kotlin.math.max(angoloFemorale3D, angoloFemorale2D)
+
+        // REGOLA D'ORO: Nel Cosacco le ginocchia sono entrambe chiuse in avanti.
+        // Se le cosce formano un angolo superiore ai 110 gradi, è palesemente una spaccata
+        // (es. Jeté in rotazione), non un Cosacco! Si blocca immediatamente.
+        if (angoloFemorale > 110.0) {
+            return null
+        }
+
+        // ==========================================
+        // FIREWALL ANTI-INARCAMENTO (Flessione)
+        // ==========================================
+        // Se la ginnasta butta le spalle troppo indietro (flessione estrema in volo),
+        // è un Jeté con flessione. In un Cosacco il busto è eretto o piegato in avanti.
+        if (spallaY > bacinoY - 0.05f) {
+            return null
         }
         // ==========================================
 
@@ -109,13 +128,13 @@ class SaltoCosacco : Difficolta {
         var valoreBase = 0.0
 
         if (isConPresa) {
-            nome = if (isEnTournant) "COSACCO TOURNANT CON PRESA" else "COSACCO CON PRESA"
+            nome = if (isEnTournant) "SALTO COSACCO TOURNANT CON PRESA" else "SALTO COSACCO CON PRESA"
             valoreBase = if (isEnTournant) 0.60 else 0.50
         } else if (isGambaAlta) {
-            nome = if (isEnTournant) "COSACCO TOURNANT SENZA PRESA" else "COSACCO ALTO SENZA PRESA"
+            nome = if (isEnTournant) "SALTO COSACCO TOURNANT SENZA PRESA" else "SALTO COSACCO ALTO SENZA PRESA"
             valoreBase = if (isEnTournant) 0.50 else 0.40
         } else {
-            nome = if (isEnTournant) "COSACCO EN TOURNANT" else "SALTO COSACCO CLASSICO"
+            nome = if (isEnTournant) "SALTO COSACCO EN TOURNANT" else "SALTO COSACCO CLASSICO"
             valoreBase = if (isEnTournant) 0.40 else 0.30
         }
 

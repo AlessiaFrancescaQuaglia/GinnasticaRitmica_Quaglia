@@ -152,13 +152,13 @@ class SaltoBicheCambio : Difficolta {
             var valoreBase = if (isEnTournant) 0.50 else 0.40
 
             if (isBoucle) {
-                nome = if (isEnTournant) "BICHE CAMBIO TOURNANT+BOUCLE" else "BICHE CAMBIO + BOUCLE"
+                nome = if (isEnTournant) "SALTO BICHE CAMBIO TOURNANT+BOUCLE" else "SALTO BICHE CAMBIO + BOUCLE"
                 valoreBase = if (isEnTournant) 0.70 else 0.60
             } else if (isFlessione) {
-                nome = if (isEnTournant) "BICHE CAMBIO TOURNANT+FLESS." else "BICHE CAMBIO + FLESSIONE"
+                nome = if (isEnTournant) "SALTO BICHE CAMBIO TOURNANT+FLESS." else "SALTO BICHE CAMBIO + FLESSIONE"
                 valoreBase = if (isEnTournant) 0.70 else 0.60
             } else {
-                nome = if (isEnTournant) "BICHE EN TOURNANT CON CAMBIO" else "BICHE CON CAMBIO"
+                nome = if (isEnTournant) "SALTO BICHE EN TOURNANT CON CAMBIO" else "SALTO BICHE CON CAMBIO"
             }
 
             var penalita = 0.0

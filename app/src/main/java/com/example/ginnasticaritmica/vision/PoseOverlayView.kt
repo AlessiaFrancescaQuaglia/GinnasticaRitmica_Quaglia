@@ -71,9 +71,14 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
             null
         }
 
-        // 1. ANALISI DEL FOTOGRAMMA CORRENTE
+        // ==========================================
+        // 1. ANALISI MODIFICATA: INSERITI I GIRI!
+        // ==========================================
+        // I Giri vanno per primi: se sta girando, la priorità è cinematica.
         val currentAnalisi = if (liveLandmarks != null) {
-            AnalizzatoreSalti.analizza(liveLandmarks) ?: AnalizzatoreEquilibri.analizza(liveLandmarks)
+            AnalizzatoreGiri.analizza(liveLandmarks)
+                ?: AnalizzatoreSalti.analizza(liveLandmarks)
+                ?: AnalizzatoreEquilibri.analizza(liveLandmarks)
         } else {
             null
         }
@@ -89,11 +94,12 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
                 missedFrames = 0
             }
 
-            // FIX DEL BUG: Capiamo che è un salto leggendo il nome, NON leggendo il relevé!
             val nomePosa = candidateResult?.first?.uppercase() ?: ""
             val isSalto = nomePosa.contains("SALTO") || nomePosa.contains("CABRIOLE") || nomePosa.contains("JETÉ")
+            // Anche i giri/pivot devono scattare all'istante (1 frame) per accumulare i gradi in tempo reale!
+            val isGiro = nomePosa.contains("GIRO") || nomePosa.contains("PIVOT")
 
-            val requiredFrames = if (isSalto) 1 else 2
+            val requiredFrames = if (isSalto || isGiro) 1 else 2
 
             if (frameCounter >= requiredFrames) {
                 persistedResult = currentAnalisi
@@ -109,7 +115,7 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
 
         // ==========================================
-        // 3. DISEGNO DELLO SCHERMO (Modalità Pulita)
+        // 3. DISEGNO DELLO SCHERMO
         // ==========================================
         if (System.currentTimeMillis() - lastDetectionTime < PERSISTENCE_DURATION) {
 
@@ -128,23 +134,24 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
     }
 
-    // --- METODO DI SUPPORTO PER DISEGNARE A SCHERMO ---
     private fun drawResultOnCanvas(canvas: Canvas, analisi: Pair<String, RisultatoDifficolta>?) {
         val (nomeDifficolta, risultato) = analisi ?: return
 
-        // FIX DEL BUG ANCHE NEL TESTO A SCHERMO
         val nomeMaiuscolo = nomeDifficolta.uppercase()
         val isSalto = nomeMaiuscolo.contains("SALTO") || nomeMaiuscolo.contains("CABRIOLE") || nomeMaiuscolo.contains("JETÉ")
+        val isGiro = nomeMaiuscolo.contains("GIRO") || nomeMaiuscolo.contains("PIVOT")
 
-        val testoReleve = if (isSalto) {
-            "" // Nessun testo per i salti
+        // Mostriamo l'etichetta [RELEVÉ] o [PIANTA] SOLO per gli equilibri.
+        // Per salti e giri la nascondiamo completamente.
+        val testoReleve = if (isSalto || isGiro) {
+            ""
         } else {
-            if (risultato.inReleve) "[RELEVÉ]" else "[PIANTA]" // Tornano le etichette per gli equilibri!
+            if (risultato.inReleve) " [RELEVÉ]" else " [PIANTA]"
         }
 
         if (risultato.isValida) {
             resultPaint.color = Color.GREEN
-            val stringaValida = "$nomeDifficolta: ${String.format("%.2f", risultato.valoreFinale)}p $testoReleve"
+            val stringaValida = "$nomeDifficolta: ${String.format("%.2f", risultato.valoreFinale)}p$testoReleve"
             canvas.drawText(stringaValida, 50f, 100f, resultPaint)
 
             if (risultato.penalita > 0.0) {
@@ -153,7 +160,7 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
             }
         } else {
             resultPaint.color = Color.RED
-            canvas.drawText("$nomeDifficolta NON VALIDO $testoReleve", 50f, 100f, resultPaint)
+            canvas.drawText("$nomeDifficolta NON VALIDO$testoReleve", 50f, 100f, resultPaint)
 
             textPaint.color = Color.RED
             canvas.drawText(risultato.messaggioErrore, 50f, 170f, textPaint)

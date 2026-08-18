@@ -19,9 +19,9 @@ object AnalizzatoreEquilibri {
     // Vuoi aggiungere l'Arabesque? Ti basterà aggiungere una riga qui sotto!
     private val archivioDifficolta = listOf(
 
-        EquilibrioFouette(),      // 1. PRIMO ASSOLUTO: La macchina a stati dinamica
+        EquilibrioFouette(),
+        EquilibrioPenche(),   // 1. PRIMO ASSOLUTO: La macchina a stati dinamica
         EquilibrioBoucle(),       // 2. Pose estreme
-        EquilibrioPenche(),
         EquilibrioGrandEcart(),
         EquilibrioTilt(),
         EquilibrioArabesque(),    // 3. Pose intermedie

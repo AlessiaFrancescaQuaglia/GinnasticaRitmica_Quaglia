@@ -22,7 +22,7 @@ class EquilibrioArabesque : Difficolta {
         val rightAnkle = landmarks[28]
 
         // ==========================================
-        // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
+        // 1. FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
         // ==========================================
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
@@ -35,9 +35,8 @@ class EquilibrioArabesque : Difficolta {
         val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
 
         if (!isLeftPlanted && !isRightPlanted) {
-            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
+            return null
         }
-        // ==========================================
 
         val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
         val spalla = if (isAppoggioLeft) landmarks[12] else landmarks[11]
@@ -49,14 +48,23 @@ class EquilibrioArabesque : Difficolta {
         val supportKnee = if (isAppoggioLeft) leftKnee else rightKnee
         val supportAnkle = if (isAppoggioLeft) leftAnkle else rightAnkle
 
-        // Controllo base sulle ginocchia in 3D (Entrambe devono essere tese)
-        // Riutilizziamo le variabili calcolate nel Firewall!
+        // ==========================================
+        // 2. FIREWALL ANTI-FALSO POSITIVO (In piedi)
+        // ==========================================
+        // In un Arabesque la gamba DEVE essere sollevata.
+        // Se la caviglia libera è più bassa del ginocchio d'appoggio, l'atleta è palesemente in piedi.
+        if (caviglia.y() > supportKnee.y()) return null
+
+        // Controllo base sulle ginocchia in 3D (Entrambe devono essere tendenzialmente tese)
         if (leftKneeAngle < 130.0 || rightKneeAngle < 130.0) return null
 
         val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
         val supportToe = if (isAppoggioLeft) landmarks[31] else landmarks[32]
         val isFacingRight = supportToe.x() > supportHeel.x()
 
+        // ==========================================
+        // 3. ANALISI BUSTO E DIREZIONE
+        // ==========================================
         // La gamba sollevata deve essere estesa all'indietro
         val isBackwardExtended = if (isFacingRight) caviglia.x() < supportHip.x() else caviglia.x() > supportHip.x()
         if (!isBackwardExtended) return null
@@ -64,10 +72,9 @@ class EquilibrioArabesque : Difficolta {
         val shoulderCenterX = (landmarks[11].x() + landmarks[12].x()) / 2f
         val shoulderCenterY = (landmarks[11].y() + landmarks[12].y()) / 2f
         val hipCenterX = (leftHip.x() + rightHip.x()) / 2f
-        val hipCenterY = bacinoY
 
         val dx = shoulderCenterX - hipCenterX
-        val dy = hipCenterY - shoulderCenterY
+        val dy = bacinoY - shoulderCenterY
         val gradiBusto = abs(Math.toDegrees(atan2(dx.toDouble(), dy.toDouble())))
 
         val isTorsoForward = if (isFacingRight) dx > 0 else dx < 0
@@ -80,9 +87,9 @@ class EquilibrioArabesque : Difficolta {
         var valoreBase = 0.20
         var isPlanche = false
 
-        // --- TOLLERANZA BUSTO PLANCHE ---
-        // 90° è perfettamente orizzontale.
-        // Ora accettiamo il busto anche se è sollevato a 55° o se scende molto fino a 130°.
+        // ==========================================
+        // 4. CLASSIFICAZIONE E PUNTEGGI
+        // ==========================================
         if (isTorsoForward && gradiBusto in 55.0..130.0) {
             nome = "PLANCHE"
             valoreBase = 0.30
@@ -100,7 +107,6 @@ class EquilibrioArabesque : Difficolta {
             valoreBase = 0.20
         }
 
-        // Controllo Relevé (La penalità di 0.10 si toglie dal valore base)
         val inReleve = RegoleGinnastica.verificaReleve(landmarks, isAppoggioLeft)
         if (!inReleve) {
             valoreBase -= 0.10
@@ -111,13 +117,9 @@ class EquilibrioArabesque : Difficolta {
         var msgErrore = ""
 
         if (isPlanche) {
-            // --- NUOVO SENSORE GRAVITAZIONALE PLANCHE ---
-            // Se (caviglia.y - anca.y) è negativo, la gamba è più in alto del bacino (OTTIMO!).
-            // Se è positivo, misuriamo di quanto la gamba sta scendendo verso il pavimento.
             val cadutaGambaY = caviglia.y() - anca.y()
 
             if (cadutaGambaY <= 0.02f) {
-                // Gamba altissima o perfettamente orizzontale (tolleranza 2%) -> 0 Penalità!
                 penalita += 0.0
             } else if (cadutaGambaY in 0.021f..0.06f) {
                 penalita += 0.10
@@ -129,7 +131,6 @@ class EquilibrioArabesque : Difficolta {
                 msgErrore = "Gamba troppo bassa (Sotto l'orizzontale)"
             }
         } else {
-            // ARABESQUE CLASSICA: Valutiamo l'altezza rispetto al busto eretto (calcolo ad angolo)
             val altezzaGamba = PoseAnalyzer.calculateAngle3D(spalla, anca, ginocchio)
             if (altezzaGamba <= 100.0) penalita += 0.0
             else if (altezzaGamba in 100.1..115.0) penalita += 0.10
@@ -137,17 +138,14 @@ class EquilibrioArabesque : Difficolta {
             else { penalita += 0.50; isValida = false; msgErrore = "Gamba troppo bassa" }
         }
 
-        // Penalità comune a Planche e Arabesque: Il ginocchio libero deve essere tesissimo
         val tensioneGinocchio = PoseAnalyzer.calculateAngle3D(anca, ginocchio, caviglia)
         if (isValida) {
-            // Abbassato leggermente il requisito perfetto da 170° a 165° per non essere esageratamente severi
             if (tensioneGinocchio >= 165.0) penalita += 0.0
             else if (tensioneGinocchio in 155.0..164.9) penalita += 0.10
             else if (tensioneGinocchio in 140.0..154.9) penalita += 0.30
             else { penalita += 0.50; isValida = false; msgErrore = "Ginocchio piegato" }
         }
 
-        // Invalida l'equilibrio se il valore è nullo (es. Planche in pianta)
         if (valoreBase <= 0.0) {
             isValida = false
             if (msgErrore.isEmpty()) msgErrore = "Eseguito in Pianta (Valore nullo)"

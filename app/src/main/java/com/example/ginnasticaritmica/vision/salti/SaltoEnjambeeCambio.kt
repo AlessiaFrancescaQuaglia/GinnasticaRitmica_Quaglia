@@ -153,7 +153,7 @@ class SaltoEnjambeeCambio : Difficolta {
             // ==========================================
 
             var valoreBase = 0.0
-            val prefissoRotazione = if (isEnTournant) "CAMBIO TOURNANT" else "CAMBIO"
+            val prefissoRotazione = if (isEnTournant) " SALTO CON CAMBIO TOURNANT" else "SALTO CON CAMBIO"
 
             if (isSlancioTeso) {
                 if (isBoucle) {

@@ -4,6 +4,7 @@ import com.example.ginnasticaritmica.vision.Difficolta
 import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import kotlin.math.abs
 
 class SaltoEnjambee : Difficolta {
     override var nome = "SALTO ENJAMBÉE"
@@ -24,24 +25,32 @@ class SaltoEnjambee : Difficolta {
         val rightAnkle = landmarks[28]
 
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val bacinoX = (leftHip.x() + rightHip.x()) / 2f
 
-        val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
-        val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+        // ==========================================
+        // 1. FIREWALL ANTI-EQUILIBRIO (FILTRO PILASTRO)
+        // ==========================================
+        // Calcoliamo se la gamba è un "Pilastro" (perfettamente verticale).
+        // Se la caviglia è esattamente sotto l'anca (distanza X minima, distanza Y ampia),
+        // la ginnasta è palesemente in appoggio sul pavimento (In piedi o in Penché).
+        val dxLeft = abs(leftAnkle.x() - leftHip.x())
+        val dyLeft = leftAnkle.y() - leftHip.y()
+        val isLeftPillar = dyLeft > 0.20f && dxLeft < 0.20f
 
-        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
-        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+        val dxRight = abs(rightAnkle.x() - rightHip.x())
+        val dyRight = rightAnkle.y() - rightHip.y()
+        val isRightPillar = dyRight > 0.20f && dxRight < 0.20f
 
-        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
-        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
-        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
-        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
-
-        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
-            return null // Piede a terra confermato, passa agli equilibri!
+        if (isLeftPillar || isRightPillar) {
+            return null // Blocca il salto: c'è un piede piantato a terra a fare da pilastro!
         }
 
+        // ==========================================
+        // 2. ANALISI DIREZIONE E TOURNANT
+        // ==========================================
         val spallaSx = landmarks[11]
         val spallaDx = landmarks[12]
+        val spallaCentroY = (spallaSx.y() + spallaDx.y()) / 2f
 
         val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
         if (ultimaDirezioneSpalleDestra == null) {
@@ -51,9 +60,7 @@ class SaltoEnjambee : Difficolta {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
         }
 
-        val centroBacinoX = (leftHip.x() + rightHip.x()) / 2f
-        val isFacingRight = landmarks[0].x() > centroBacinoX
-
+        val isFacingRight = landmarks[0].x() > bacinoX
         val isLeftFront = if (isFacingRight) leftAnkle.x() > rightAnkle.x() else leftAnkle.x() < rightAnkle.x()
 
         val frontHip = if (isLeftFront) leftHip else rightHip
@@ -65,17 +72,14 @@ class SaltoEnjambee : Difficolta {
         val backAnkle = if (isLeftFront) rightAnkle else leftAnkle
         val backToe = if (isLeftFront) landmarks[32] else landmarks[31]
 
-        // Tolleranza in volo per la gamba anteriore
         val frontKneeAngle = PoseAnalyzer.calculateAngle3D(frontHip, frontKnee, frontAnkle)
         if (frontKneeAngle < 130.0) return null
 
-        val centroBacinoY = (leftHip.y() + rightHip.y()) / 2f
-        val centroBacino = NormalizedLandmark.create(centroBacinoX, centroBacinoY, 0f)
+        val centroBacino = NormalizedLandmark.create(bacinoX, bacinoY, 0f)
 
         // ==========================================
-        // CALCOLO SPACCATA (SENSORE OVERSPLIT)
+        // 3. CALCOLO SPACCATA
         // ==========================================
-        // Usiamo i vettori direzionali della gamba anteriore (tesa) e del femore posteriore
         val vFrontX = frontAnkle.x() - frontHip.x()
         val vFrontY = frontAnkle.y() - frontHip.y()
         val vBackX = backKnee.x() - backHip.x()
@@ -88,15 +92,12 @@ class SaltoEnjambee : Difficolta {
         var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dot / (magF * magB)))
         if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
 
-        // IL SALVATAGGIO DELL'OVERSPLIT: Se la caviglia davanti e il ginocchio dietro
-        // vanno in direzioni orizzontali opposte, E sono entrambi altissimi (vicino o sopra il bacino),
-        // è matematicamente una spaccata perfetta o in oversplit, ignoriamo l'angolo a "V"!
         val isOppositeHorizontal = (vFrontX > 0 && vBackX < 0) || (vFrontX < 0 && vBackX > 0)
         if (isOppositeHorizontal) {
             if (frontAnkle.y() <= bacinoY + 0.05f && backKnee.y() <= bacinoY + 0.05f) {
-                angoloSpaccata2D = 180.0 // Oversplit perfetto! 0 Penalità.
+                angoloSpaccata2D = 180.0
             } else if (frontAnkle.y() <= bacinoY + 0.15f && backKnee.y() <= bacinoY + 0.15f) {
-                angoloSpaccata2D = kotlin.math.max(angoloSpaccata2D, 165.0) // Ottimo salto.
+                angoloSpaccata2D = kotlin.math.max(angoloSpaccata2D, 165.0)
             }
         }
 
@@ -108,40 +109,43 @@ class SaltoEnjambee : Difficolta {
         val tempoTrascorsoDaRotazione = System.currentTimeMillis() - tempoUltimaRotazione
         val isEnTournant = tempoTrascorsoDaRotazione < 1500L
 
+        // ==========================================
+        // 4. CLASSIFICAZIONE (BOUCLE / FLESSIONI)
+        // ==========================================
         var valoreBase = 0.30
         val nose = landmarks[0]
         val backKneeAngle = PoseAnalyzer.calculateAngle3D(backHip, backKnee, backAnkle)
         val distanzaTestaPiede = PoseAnalyzer.calculateDistance3D(nose, backToe)
 
-        // ==========================================
-        // SENSORE DI FLESSIONE E BOUCLE
-        // ==========================================
         val spallaCentroX = (spallaSx.x() + spallaDx.x()) / 2f
-        val spallaCentroY = (spallaSx.y() + spallaDx.y()) / 2f
-        val spostamentoSpalleDietro = if (isFacingRight) centroBacinoX - spallaCentroX else spallaCentroX - centroBacinoX
+        val spostamentoSpalleDietro = if (isFacingRight) bacinoX - spallaCentroX else spallaCentroX - bacinoX
 
         val schiacciamentoTroncoY = bacinoY - spallaCentroY
         val distNasoBacino = PoseAnalyzer.calculateDistance3D(nose, centroBacino)
 
         val isFlessioneEvidente = distNasoBacino < 0.25f ||
                 spostamentoSpalleDietro > 0.25f ||
-                (schiacciamentoTroncoY < 0.10f && spostamentoSpalleDietro > 0.05f)
+                (schiacciamentoTroncoY > 0.0f && schiacciamentoTroncoY < 0.10f && spostamentoSpalleDietro > 0.05f) ||
+                (schiacciamentoTroncoY < 0.0f)
 
         val isBoucle = backKneeAngle <= 135.0 && distanzaTestaPiede <= 0.25f
 
         val isFlessione = !isBoucle && (isFlessioneEvidente || (backKneeAngle > 135.0 && distanzaTestaPiede <= 0.20f))
 
         if (isBoucle) {
-            nome = if (isEnTournant) "JETÉ TOURNANT BOUCLE / AGIURG." else "ENJAMBÉE CON BOUCLE"
+            nome = if (isEnTournant) "SALTO JETÉ TOURNANT BOUCLE / AGIURG." else "SALTO ENJAMBÉE CON BOUCLE"
             valoreBase = if (isEnTournant) 0.60 else 0.40
         } else if (isFlessione) {
-            nome = if (isEnTournant) "JETÉ EN TOURNANT + FLESSIONE" else "ENJAMBÉE CON FLESSIONE"
+            nome = if (isEnTournant) "SALTO JETÉ EN TOURNANT + FLESSIONE" else "SALTO ENJAMBÉE CON FLESSIONE"
             valoreBase = if (isEnTournant) 0.60 else 0.50
         } else {
-            nome = if (isEnTournant) "JETÉ EN TOURNANT" else "SALTO ENJAMBÉE"
+            nome = if (isEnTournant) "SALTO JETÉ EN TOURNANT" else "SALTO ENJAMBÉE"
             valoreBase = if (isEnTournant) 0.40 else 0.30
         }
 
+        // ==========================================
+        // 5. PENALITÀ E RESTITUZIONE
+        // ==========================================
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""

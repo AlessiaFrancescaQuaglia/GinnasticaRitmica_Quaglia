@@ -1,8 +1,11 @@
 package com.example.ginnasticaritmica.ui.fragment
 
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import android.Manifest
 import android.content.pm.PackageManager
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Size
 import android.view.LayoutInflater
@@ -71,16 +74,29 @@ class AnalisiPosaFragment : Fragment(), MediaPipeHelper.LandmarkerListener {
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // Inizializziamo il nostro helper di MediaPipe
-        mediaPipeHelper = MediaPipeHelper(
-            context = requireContext(),
-            listener = this
-        )
+        // 1. Salviamo i riferimenti in modo sicuro prima di andare in background
+        val ctx = requireContext()
+        val listenerRef = this
 
-        if (allPermissionsGranted()) {
-            avviaFotocamera()
-        } else {
-            requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+        // 2. Apriamo un processo asincrono (Background Thread) per non congelare la UI
+        lifecycleScope.launch(Dispatchers.IO) {
+
+            // Questo lavoro pesante adesso viene fatto di nascosto!
+            // Il Fragment si aprirà istantaneamente con un'animazione fluida.
+            mediaPipeHelper = MediaPipeHelper(
+                context = ctx,
+                listener = listenerRef
+            )
+
+            // 3. Quando MediaPipe ha finito di caricare, torniamo al Main Thread
+            withContext(Dispatchers.Main) {
+                // Ora accendiamo la fotocamera!
+                if (allPermissionsGranted()) {
+                    avviaFotocamera()
+                } else {
+                    requestPermissionLauncher.launch(Manifest.permission.CAMERA)
+                }
+            }
         }
     }
 

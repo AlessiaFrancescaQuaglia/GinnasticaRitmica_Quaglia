@@ -102,7 +102,7 @@ class SaltoCarpiato : Difficolta {
         var valoreBase = 0.0
 
         if (isCarpiatoFlesso) {
-            nome = if (isEnTournant) "CARPIATO TOURNANT + FLESSIONE" else "SALTO CARPIATO PROFONDO"
+            nome = if (isEnTournant) "SALTO CARPIATO TOURNANT + FLESSIONE" else "SALTO CARPIATO PROFONDO"
             valoreBase = if (isEnTournant) 0.50 else 0.40
         } else {
             nome = if (isEnTournant) "SALTO CARPIATO EN TOURNANT" else "SALTO CARPIATO"

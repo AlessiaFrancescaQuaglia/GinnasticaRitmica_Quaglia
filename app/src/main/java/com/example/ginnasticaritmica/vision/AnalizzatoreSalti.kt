@@ -13,26 +13,39 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 
 object AnalizzatoreSalti {
 
-    // Inseriremo qui tutti i salti, in ordine dal più complesso (Carpiato) al più semplice (Cosacco)
     private val listaSalti: List<Difficolta> = listOf(
-        SaltoEnjambeeCambio(), // Il sensore temporale va sempre per primo!
+        SaltoEnjambeeCambio(),
         SaltoBicheCambio(),
         SaltoEnjambee(),
-        SaltoBiche(),
         SaltoButterfly(),
-        SaltoCabriole(),       // Posizione perfetta (se hai già creato il file)
-        SaltoCarpiato(),       // Trovato e lasciato uno solo
+        SaltoBiche(),
+        SaltoCabriole(),
+        SaltoCarpiato(),
         SaltoBoucle(),
         SaltoCosacco()
     )
 
+    // Brevissimo cooldown solo per evitare sfarfallii tra un frame e l'altro (circa 300ms)
+    private var ultimoSaltoRiconosciutoTime: Long = 0L
+    private const val COOLDOWN_RAPIDO_MS = 300L
+
     fun analizza(landmarks: List<NormalizedLandmark>): Pair<String, RisultatoDifficolta>? {
+        val currentTime = System.currentTimeMillis()
+
+        // Se siamo in un piccolissimo blocco post-riconoscimento, evitiamo doppie scritture istantanee
+        if (currentTime - ultimoSaltoRiconosciutoTime < COOLDOWN_RAPIDO_MS) {
+            // Se c'è già un salto attivo nella classe, lasciamo che continui a mostrarlo
+        }
+
+        // Analisi immediata su questo singolo fotogramma
         for (salto in listaSalti) {
             val risultato = salto.valuta(landmarks)
-            if (risultato != null) {
+            if (risultato != null && risultato.isValida) {
+                ultimoSaltoRiconosciutoTime = currentTime
                 return Pair(salto.nome, risultato)
             }
         }
+
         return null
     }
 }

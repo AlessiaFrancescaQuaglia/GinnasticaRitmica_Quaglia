@@ -4,20 +4,20 @@ import com.example.ginnasticaritmica.vision.Difficolta
 import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import kotlin.math.max
 
 class SaltoCabriole : Difficolta {
-    override var nome = "CABRIOLE"
+    override var nome = "SALTO CABRIOLE"
+
+    companion object {
+        private var tempoUltimaBattuta: Long = 0L
+        private var bestElevazione = 180.0
+        private var nomeSalvato = "SALTO CABRIOLE"
+    }
 
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-
-        val leftShoulder = landmarks[11]
-        val rightShoulder = landmarks[12]
-        val nose = landmarks[0]
-        // ==========================================
-        // FIREWALL DEFINITIVO ANTI-EQUILIBRIO (Anatomico)
-        // ==========================================
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftKnee = landmarks[25]
@@ -26,67 +26,113 @@ class SaltoCabriole : Difficolta {
         val rightAnkle = landmarks[28]
 
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
-        val spallaY = (landmarks[11].y() + landmarks[12].y()) / 2f
-        val altezzaTronco = kotlin.math.abs(bacinoY - spallaY)
+        val bacinoX = (leftHip.x() + rightHip.x()) / 2f
+        val centroBacino = NormalizedLandmark.create(bacinoX, bacinoY, 0f)
 
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
 
-        // Una gamba è piantata a terra se:
-        // 1. Scende sotto il bacino di una misura proporzionale al busto (tracciamento perfetto)
-        // OPPURE
-        // 2. Scende anche di poco, ma il ginocchio è dritto a sorreggere il peso (tracciamento rotto/schermo piatto)
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
 
-        val isLeftPlanted = (leftAnkle.y() > bacinoY + (altezzaTronco * 0.6f)) ||
-                (leftAnkle.y() > bacinoY + 0.05f && leftKneeAngle > 150.0)
+        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
+        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
+        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
 
-        val isRightPlanted = (rightAnkle.y() > bacinoY + (altezzaTronco * 0.6f)) ||
-                (rightAnkle.y() > bacinoY + 0.05f && rightKneeAngle > 150.0)
-
-        if (isLeftPlanted || isRightPlanted) {
-            return null // Piede a terra! Spegni immediatamente la classe dei salti.
-        }
         // ==========================================
-        // 1. Controllo di base: le ginocchia devono essere tese durante il salto
-        if (leftKneeAngle < 140.0 || rightKneeAngle < 140.0) return null
-
-        // 2. Direzione del corpo (Tallone vs Punta o Naso/Spalle)
-        val shoulderCenterX = (leftShoulder.x() + rightShoulder.x()) / 2f
-        val isFacingRight = nose.x() > shoulderCenterX
-
-        // 3. Riconoscimento della battuta (Nel Cabriole le caviglie si avvicinano molto o si incrociano in volo)
-        val distanzaCaviglie = PoseAnalyzer.calculateDistance3D(leftAnkle, rightAnkle)
-
-        // Se le caviglie sono molto vicine (battuta in aria < 12cm in 3D)
-        val isBattutaInAria = distanzaCaviglie < 0.05f
-
-        // Distinguiamo la direzione del salto in base alla posizione delle gambe rispetto al bacino
-        val isAvanti = if (isFacingRight) rightAnkle.x() > rightHip.x() else rightAnkle.x() < rightHip.x()
-        val isIndietro = if (isFacingRight) rightAnkle.x() < rightHip.x() else rightAnkle.x() > rightHip.x()
-
-        // Assegnazione del nome specifico in base al Codice dei Punteggi (Valore 0.10)
-        var valoreBase = 0.10
-        if (isAvanti) {
-            nome = "CABRIOLE AVANTI (1.901)"
-        } else if (isIndietro) {
-            nome = "CABRIOLE INDIETRO (1.1101)"
-        } else {
-            nome = "CABRIOLE LATERALE (1.1001)"
+        // 1. TASTO DI RESET (Atterraggio)
+        // ==========================================
+        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
+            tempoUltimaBattuta = 0L
+            bestElevazione = 180.0
+            return null
         }
 
-        // Se non c'è evidenza di stacco e chiusura ravvicinata degli arti, scartiamo
-        if (!isBattutaInAria) return null
+        // ==========================================
+        // 2. CALCOLO APERTURA IBRIDA (2D + 3D)
+        // ==========================================
+        val distanzaCaviglie = PoseAnalyzer.calculateDistance3D(leftAnkle, rightAnkle)
+        val angoloSpaccata3D = PoseAnalyzer.calculateAngle3D(leftAnkle, centroBacino, rightAnkle)
 
-        val isValida = true
-        val penalita = 0.0
-        val msgErrore = ""
+        val vLeftX = leftAnkle.x() - bacinoX
+        val vLeftY = leftAnkle.y() - bacinoY
+        val vRightX = rightAnkle.x() - bacinoX
+        val vRightY = rightAnkle.y() - bacinoY
+        val dot = (vLeftX * vRightX) + (vLeftY * vRightY)
+        val magL = kotlin.math.sqrt((vLeftX * vLeftX + vLeftY * vLeftY).toDouble())
+        val magR = kotlin.math.sqrt((vRightX * vRightX + vRightY * vRightY).toDouble())
+        var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dot / (magL * magR)))
+        if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
 
-        return RisultatoDifficolta(
-            isValida = isValida,
-            valoreFinale = valoreBase,
-            penalita = penalita,
-            inReleve = false,
-            messaggioErrore = msgErrore
-        )
+        // Prendiamo l'angolo più fedele alla realtà, sfuggendo ai bug di prospettiva
+        val aperturaReale = max(angoloSpaccata3D, angoloSpaccata2D)
+
+        // ==========================================
+        // 3. IL KILL-SWITCH ANTI-ENJAMBÉE
+        // ==========================================
+        // In un Cabriole le gambe sbattono insieme. Se le gambe iniziano ad aprirsi a forbice
+        // (angolo > 50 gradi) o se la distanza è grande, È IMPOSSIBILE CHE SIA UN CABRIOLE!
+        // Autodistruzione immediata della memoria, liberando il salto successivo.
+        if (aperturaReale > 50.0 || distanzaCaviglie > 0.25f) {
+            tempoUltimaBattuta = 0L
+            bestElevazione = 180.0
+            return null
+        }
+
+        val spallaSx = landmarks[11]
+        val spallaDx = landmarks[12]
+        val spallaCentro = NormalizedLandmark.create((spallaSx.x() + spallaDx.x()) / 2f, (spallaSx.y() + spallaDx.y()) / 2f, 0f)
+        val centroCaviglie = NormalizedLandmark.create((leftAnkle.x() + rightAnkle.x()) / 2f, (leftAnkle.y() + rightAnkle.y()) / 2f, 0f)
+
+        val elevazioneGambe = PoseAnalyzer.calculateAngle3D(spallaCentro, centroBacino, centroCaviglie)
+        val avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2f
+
+        val isLeftHigh = leftAnkle.y() < bacinoY + 0.15f
+        val isRightHigh = rightAnkle.y() < bacinoY + 0.15f
+
+        // ==========================================
+        // LA TRAPPOLA DEL CABRIOLE
+        // ==========================================
+        // Scatta solo se l'angolo tra le gambe è strettissimo,
+        // le ginocchia sono dritte e le gambe sono alte.
+        if (avgKneeAngle > 135.0 && distanzaCaviglie < 0.20f && isLeftHigh && isRightHigh && aperturaReale < 40.0) {
+
+            tempoUltimaBattuta = System.currentTimeMillis()
+
+            if (elevazioneGambe < bestElevazione) {
+                bestElevazione = elevazioneGambe
+            }
+
+            val nose = landmarks[0]
+            val isFacingRight = nose.x() > bacinoX
+            val isAvanti = if (isFacingRight) centroCaviglie.x() > bacinoX else centroCaviglie.x() < bacinoX
+            nomeSalvato = if (isAvanti) "SALTO CABRIOLE AVANTI" else "SALTO CABRIOLE INDIETRO / LATO"
+        }
+
+        // ==========================================
+        // FORZATURA DEL RISULTATO
+        // ==========================================
+        val tempoTrascorso = System.currentTimeMillis() - tempoUltimaBattuta
+        val isCabrioleAttivo = tempoTrascorso < 1000L && tempoUltimaBattuta != 0L
+
+        if (isCabrioleAttivo) {
+            nome = nomeSalvato
+            var penalita = 0.0
+            var msgErrore = ""
+
+            if (bestElevazione <= 100.0) penalita += 0.0
+            else if (bestElevazione <= 120.0) penalita += 0.10
+            else penalita += 0.30
+
+            if (avgKneeAngle < 135.0) {
+                penalita += 0.30
+                msgErrore = "Ginocchia piegate"
+            }
+
+            return RisultatoDifficolta(true, 0.10, penalita, false, msgErrore)
+        }
+
+        return null
     }
 }
