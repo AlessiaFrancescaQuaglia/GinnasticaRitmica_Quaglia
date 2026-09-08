@@ -7,13 +7,17 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.abs
 import kotlin.math.atan2
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri
 
 class EquilibrioArabesque : Difficolta {
     override var nome = "ARABESQUE"
 
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
+        if (LucchettoGiri.giroAttivo != null) return null
 
+        val leftShoulder = landmarks[11]
+        val rightShoulder = landmarks[12]
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftKnee = landmarks[25]
@@ -21,22 +25,20 @@ class EquilibrioArabesque : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
-        // ==========================================
-        // 1. FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
-        // ==========================================
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
+        val scalaCorpo = PoseAnalyzer.calculateDistance3D(leftShoulder, leftHip)
+
+        // ==========================================
+        // 1. FIREWALL ANTI-VOLO
+        // ==========================================
+        val lowestAnkleY = kotlin.math.max(leftAnkle.y(), rightAnkle.y())
+        if (lowestAnkleY < bacinoY + (scalaCorpo * 0.9f)) return null
+
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
 
-        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
-        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
-
-        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
-        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
-
-        if (!isLeftPlanted && !isRightPlanted) {
-            return null
-        }
+        if (leftKneeAngle < 130.0 || rightKneeAngle < 130.0) return null
 
         val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
         val spalla = if (isAppoggioLeft) landmarks[12] else landmarks[11]
@@ -46,17 +48,11 @@ class EquilibrioArabesque : Difficolta {
 
         val supportHip = if (isAppoggioLeft) leftHip else rightHip
         val supportKnee = if (isAppoggioLeft) leftKnee else rightKnee
-        val supportAnkle = if (isAppoggioLeft) leftAnkle else rightAnkle
 
         // ==========================================
         // 2. FIREWALL ANTI-FALSO POSITIVO (In piedi)
         // ==========================================
-        // In un Arabesque la gamba DEVE essere sollevata.
-        // Se la caviglia libera è più bassa del ginocchio d'appoggio, l'atleta è palesemente in piedi.
         if (caviglia.y() > supportKnee.y()) return null
-
-        // Controllo base sulle ginocchia in 3D (Entrambe devono essere tendenzialmente tese)
-        if (leftKneeAngle < 130.0 || rightKneeAngle < 130.0) return null
 
         val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
         val supportToe = if (isAppoggioLeft) landmarks[31] else landmarks[32]
@@ -65,7 +61,6 @@ class EquilibrioArabesque : Difficolta {
         // ==========================================
         // 3. ANALISI BUSTO E DIREZIONE
         // ==========================================
-        // La gamba sollevata deve essere estesa all'indietro
         val isBackwardExtended = if (isFacingRight) caviglia.x() < supportHip.x() else caviglia.x() > supportHip.x()
         if (!isBackwardExtended) return null
 
@@ -82,7 +77,7 @@ class EquilibrioArabesque : Difficolta {
 
         val nose = landmarks[0]
         val distanzaTestaPiede = PoseAnalyzer.calculateDistance3D(nose, caviglia)
-        val isTouching = distanzaTestaPiede < 0.25f
+        val isTouching = distanzaTestaPiede < (scalaCorpo * 0.6f)
 
         var valoreBase = 0.20
         var isPlanche = false
@@ -91,19 +86,19 @@ class EquilibrioArabesque : Difficolta {
         // 4. CLASSIFICAZIONE E PUNTEGGI
         // ==========================================
         if (isTorsoForward && gradiBusto in 55.0..130.0) {
-            nome = "PLANCHE"
+            nome = "EQUILIBRIO PLANCHE"
             valoreBase = 0.30
             isPlanche = true
         } else if (isTorsoBackward && isTouching) {
-            nome = "ARABESQUE (Flessione indietro con contatto)"
+            nome = "EQUILIBRIO ARABESQUE (Flessione indietro con contatto)"
             valoreBase = 0.40
         } else if (isTorsoBackward && gradiBusto in 70.0..110.0) {
-            nome = "ARABESQUE (Flesso indietro orizz.)"
+            nome = "EQUILIBRIO ARABESQUE (Flesso indietro orizz.)"
             valoreBase = 0.30
         } else if (isTorsoForward) {
-            return null // Posa transitoria o non chiara
+            return null // Posa transitoria
         } else {
-            nome = "ARABESQUE"
+            nome = "EQUILIBRIO ARABESQUE"
             valoreBase = 0.20
         }
 
@@ -118,12 +113,14 @@ class EquilibrioArabesque : Difficolta {
 
         if (isPlanche) {
             val cadutaGambaY = caviglia.y() - anca.y()
+            // Tolleranze in scala corpoprospettiche
+            val tolleranza = scalaCorpo * 0.1f
 
             if (cadutaGambaY <= 0.02f) {
                 penalita += 0.0
-            } else if (cadutaGambaY in 0.021f..0.06f) {
+            } else if (cadutaGambaY in 0.021f..tolleranza) {
                 penalita += 0.10
-            } else if (cadutaGambaY in 0.061f..0.12f) {
+            } else if (cadutaGambaY in tolleranza..(tolleranza*2)) {
                 penalita += 0.30
             } else {
                 penalita += 0.50

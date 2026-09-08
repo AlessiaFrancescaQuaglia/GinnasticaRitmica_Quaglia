@@ -5,6 +5,7 @@ import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RegoleGinnastica
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri
 
 class EquilibrioAttitude : Difficolta {
     override var nome = "ATTITUDE"
@@ -12,6 +13,11 @@ class EquilibrioAttitude : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // SCUDO ANTI-ROTAZIONE
+        if (LucchettoGiri.giroAttivo != null) return null
+
+        val leftShoulder = landmarks[11]
+        val rightShoulder = landmarks[12]
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftKnee = landmarks[25]
@@ -19,28 +25,30 @@ class EquilibrioAttitude : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
-        // ==========================================
-        // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
-        // ==========================================
+        val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
+        val scalaCorpo = PoseAnalyzer.calculateDistance3D(leftShoulder, leftHip)
+
+        // ==========================================
+        // 1. FIREWALL ANTI-VOLO
+        // ==========================================
+        val lowestAnkleY = kotlin.math.max(leftAnkle.y(), rightAnkle.y())
+        if (lowestAnkleY < bacinoY + (scalaCorpo * 0.9f)) return null
+
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
 
         val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
         val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
 
-        // Una gamba sorregge il corpo solo se scende dritta verso terra
         val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
         val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
 
-        // In un equilibrio, ALMENO UNA gamba DEVE essere piantata a terra!
-        // Se nessuna delle due gambe è piantata, la ginnasta sta palesemente volando.
-        if (!isLeftPlanted && !isRightPlanted) {
-            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
-        }
-        // ==========================================
+        if (!isLeftPlanted && !isRightPlanted) return null
 
-        // 1. Identificazione gamba sollevata (Quella con la Y minore è più in alto)
+        // ==========================================
+        // 2. IDENTIFICAZIONE GAMBA E DIREZIONE
+        // ==========================================
         val isLeftLifted = leftAnkle.y() < rightAnkle.y()
         val isAppoggioLeft = !isLeftLifted
 
@@ -48,56 +56,85 @@ class EquilibrioAttitude : Difficolta {
         val anca = if (isLeftLifted) leftHip else rightHip
         val ginocchioSollevato = if (isLeftLifted) leftKnee else rightKnee
         val cavigliaSollevata = if (isLeftLifted) leftAnkle else rightAnkle
-        val puntaLibera = if (isLeftLifted) landmarks[31] else landmarks[32] // Punta del piede
+        val puntaLibera = if (isLeftLifted) landmarks[31] else landmarks[32]
 
         val ancaAppoggio = if (isAppoggioLeft) leftHip else rightHip
         val ginocchioAppoggio = if (isAppoggioLeft) leftKnee else rightKnee
-        val cavigliaAppoggio = if (isAppoggioLeft) leftAnkle else rightAnkle
 
-        // --- 2. FILTRO ANTI-PASSÉ (Il Firewall) ---
-        // Se la punta del piede sollevato è attaccata al ginocchio di terra, NON è un'Attitude!
-        val distanzaPuntaGinocchio = PoseAnalyzer.calculateDistance3D(puntaLibera, ginocchioAppoggio)
-        if (distanzaPuntaGinocchio < 0.20f) {
-            return null // Blocchiamo tutto: se ne occuperà la classe EquilibrioPasse!
-        }
-
-        // 3. Controllo Ginocchio di Appoggio (Deve essere teso)
-        val angoloAppoggio = PoseAnalyzer.calculateAngle3D(ancaAppoggio, ginocchioAppoggio, cavigliaAppoggio)
-        if (angoloAppoggio < 150.0) return null
-
-        // 4. LA REGOLA DELL'ATTITUDE: Il ginocchio sollevato DEVE essere piegato!
-        val angoloSollevato = PoseAnalyzer.calculateAngle3D(spalla, anca, ginocchioSollevato) // Altezza
-        val flessioneGinocchio = PoseAnalyzer.calculateAngle3D(anca, ginocchioSollevato, cavigliaSollevata)
-
-        // Se la gamba è tesa (>140°), è un'Arabesque o un Dégagé. Scartiamo.
-        if (flessioneGinocchio > 140.0) return null
-
-        // Se il ginocchio è troppo basso (sta solo camminando), scartiamo.
-        if (angoloSollevato > 120.0) return null
-
-        // 5. Direzione (Avanti, Lato, Indietro)
         val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
         val supportToe = if (isAppoggioLeft) landmarks[31] else landmarks[32]
         val isFacingRight = supportToe.x() > supportHeel.x()
 
-        // Per il nome, guardiamo se il ginocchio va in avanti o indietro
         val isBackward = if (isFacingRight) ginocchioSollevato.x() < ancaAppoggio.x() else ginocchioSollevato.x() > ancaAppoggio.x()
 
-        nome = if (isBackward) "ATTITUDE INDIETRO" else "ATTITUDE AVANTI/LATO"
+        // ==========================================
+        // 3. FIREWALL ANTI-PENCHÉ E BUSTO
+        // ==========================================
+        // Più permissivo: scatta solo se il busto è molto schiacciato in giù
+        val isBustoFlesso = spallaY > bacinoY - (scalaCorpo * 0.15f)
+        val isFlessioneDorsale = isBustoFlesso && cavigliaSollevata.y() < spallaY + (scalaCorpo * 0.3f)
 
-        // 6. Controllo Relevé
+        if (isBustoFlesso && isBackward && !isFlessioneDorsale) {
+            return null // Questo è un Arabesque o un Penché!
+        }
+
+        // ==========================================
+        // 4. FILTRO ANTI-PASSÉ INTELLIGENTE
+        // ==========================================
+        val distanzaPuntaGinocchio = PoseAnalyzer.calculateDistance3D(puntaLibera, ginocchioAppoggio)
+
+        // IL SEGRETO: Se la gamba è indietro, NON PUÒ essere un Passé.
+        // Lo scartiamo solo se è avanti/lato E il piede tocca il ginocchio!
+        if (!isBackward && distanzaPuntaGinocchio < (scalaCorpo * 0.4f)) {
+            return null
+        }
+
+        // 5. Controllo Ginocchio di Appoggio
+        val angoloAppoggio = PoseAnalyzer.calculateAngle3D(ancaAppoggio, ginocchioAppoggio, if (isAppoggioLeft) leftAnkle else rightAnkle)
+        if (angoloAppoggio < 140.0) return null
+
+        // ==========================================
+        // 6. CALCOLO GINOCCHIO SOLLEVATO E LIMITI
+        // ==========================================
+        val angoloSollevato = PoseAnalyzer.calculateAngle3D(spalla, anca, ginocchioSollevato)
+
+        val dxAnca = anca.x() - ginocchioSollevato.x()
+        val dyAnca = anca.y() - ginocchioSollevato.y()
+        val dxCav = cavigliaSollevata.x() - ginocchioSollevato.x()
+        val dyCav = cavigliaSollevata.y() - ginocchioSollevato.y()
+
+        val dotGinocchio = (dxAnca * dxCav) + (dyAnca * dyCav)
+        val magAnca = kotlin.math.sqrt((dxAnca * dxAnca + dyAnca * dyAnca).toDouble())
+        val magCav = kotlin.math.sqrt((dxCav * dxCav + dyCav * dyCav).toDouble())
+        var flessioneGinocchio2D = Math.toDegrees(kotlin.math.acos(dotGinocchio / (magAnca * magCav)))
+        if (flessioneGinocchio2D.isNaN()) flessioneGinocchio2D = 0.0
+
+        val flessioneGinocchio3D = PoseAnalyzer.calculateAngle3D(anca, ginocchioSollevato, cavigliaSollevata)
+        val flessioneGinocchio = kotlin.math.max(flessioneGinocchio2D, flessioneGinocchio3D)
+
+        // Un Attitude deve essere flesso, se è sopra 155 è una gamba tesa (Arabesque)
+        if (flessioneGinocchio > 155.0) return null
+
+        // Se la gamba cade totalmente giù
+        if (angoloSollevato > 145.0) return null
+
+        // ==========================================
+        // 7. RESTITUZIONE PUNTEGGIO
+        // ==========================================
+        nome = if (isBackward) "EQUILIBRIO ATTITUDE INDIETRO" else "EQUILIBRIO ATTITUDE AVANTI/LATO"
+
         val inReleve = RegoleGinnastica.verificaReleve(landmarks, isAppoggioLeft)
-        var valoreBase = 0.20 // Valore base classico per l'Attitude
+        var valoreBase = 0.20
         if (!inReleve) valoreBase -= 0.10
 
-        // 7. Calcolo Penalità sull'altezza del ginocchio
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
 
-        if (angoloSollevato <= 95.0) penalita = 0.0
-        else if (angoloSollevato in 95.1..105.0) penalita = 0.10
-        else if (angoloSollevato in 105.1..115.0) penalita = 0.30
+        // Penalità ricalibrate per le proiezioni 2D
+        if (angoloSollevato <= 100.0) penalita = 0.0
+        else if (angoloSollevato in 100.1..115.0) penalita = 0.10
+        else if (angoloSollevato in 115.1..130.0) penalita = 0.30
         else {
             penalita = 0.50
             isValida = false

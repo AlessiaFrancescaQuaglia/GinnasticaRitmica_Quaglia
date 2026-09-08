@@ -78,20 +78,21 @@ class CoachDashboardFragment : Fragment() {
         )
 
         // Test immediato diu debug
-        val testImmediato = OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
-        WorkManager.getInstance(requireContext()).enqueueUniqueWork(
-        "TestImmediato",
-        ExistingWorkPolicy.REPLACE,
-        testImmediato
-        )
+        //val testImmediato = OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
+       // WorkManager.getInstance(requireContext()).enqueueUniqueWork(
+        //"TestImmediato",
+        //ExistingWorkPolicy.REPLACE,
+        //testImmediato
+        //)
 
-        // Invece di impostare a mano i testi,l'intero layout viene agganciato direttamente al ViewModel. Quando il ViewModel cambia, l'XML si aggiorna da solo
+        // Invece di impostare a mano i testi, l'intero layout viene agganciato direttamente al ViewModel.
+        // Quando il ViewModel cambia, l'XML si aggiorna da solo
         binding.viewModel = viewModel
         binding.lifecycleOwner = viewLifecycleOwner
 
         // Gestione apertura menù laterale
-        binding.btnHamburger.setOnClickListener {
-            binding.drawerLayout.openDrawer(GravityCompat.START)
+        binding.topAppBar.setNavigationOnClickListener {
+            binding.drawerLayout.openDrawer(androidx.core.view.GravityCompat.START)
         }
 
         // Gestione dei click sui tasti del menù laterale

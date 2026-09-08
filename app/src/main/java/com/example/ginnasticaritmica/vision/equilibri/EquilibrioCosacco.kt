@@ -5,6 +5,7 @@ import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RegoleGinnastica
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
 
 class EquilibrioCosacco : Difficolta {
     override var nome = "COSACCO"
@@ -37,6 +38,14 @@ class EquilibrioCosacco : Difficolta {
         val isRightSquatPlanted = rightKneeAngle < 90.0 && rightAnkle.y() > bacinoY + (femoreDx * 0.5f)
 
         val isAppoggioLeft: Boolean
+
+        if (landmarks.size <= 32) return null
+
+        // SCUDO ANTI-ROTAZIONE: Se la ginnasta sta girando, non può essere un equilibrio!
+        if (LucchettoGiri.giroAttivo != null) {
+            return null
+        }
+
         if (isLeftSquatPlanted && rightKneeAngle > 135.0) {
             isAppoggioLeft = true
         } else if (isRightSquatPlanted && leftKneeAngle > 135.0) {
@@ -71,10 +80,10 @@ class EquilibrioCosacco : Difficolta {
         val isPiedeAlto = freeAnkle.y() < nose.y() + 0.05f
 
         if (isPiedeAlto && conAiuto) {
-            nome = "COSACCO (Piede alto, aiuto)" // 2.1402
+            nome = "EQUILIBRIO COSACCO (Piede alto, aiuto)" // 2.1402
             valoreBase = 0.20
         } else {
-            nome = "COSACCO (Gamba avanti orizz.)" // 2.1301
+            nome = "EQUILIBRIO COSACCO (Gamba avanti orizz.)" // 2.1301
             valoreBase = 0.10
         }
 

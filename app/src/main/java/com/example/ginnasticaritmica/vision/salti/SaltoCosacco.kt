@@ -32,22 +32,30 @@ class SaltoCosacco : Difficolta {
 
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
+        val scalaCorpo = PoseAnalyzer.calculateDistance3D(spallaSx, leftHip)
 
         // ==========================================
-        // FIREWALL ANTI-EQUILIBRIO
+        // 1. IL FIREWALL ANTI-GRAVITÀ SUPREMO (Anti-Giri / Anti-Penché)
         // ==========================================
-        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
-        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+        // Un salto esiste solo se si stacca da terra.
+        // Se la caviglia più bassa si trova molto al di sotto del bacino
+        // (a una distanza tipica di una gamba tesa o di supporto), l'atleta NON è in volo!
+        // Usiamo 1.1 volte il busto (scalaCorpo) come lunghezza indicativa di una gamba piantata.
+        val lowestAnkleY = kotlin.math.max(leftAnkle.y(), rightAnkle.y())
+        if (lowestAnkleY > bacinoY + (scalaCorpo * 1.1f)) {
+            return null // È a terra (probabilmente sta facendo un Giro Penché o Arabesque!)
+        }
 
-        val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
-        val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
-        val isLeftDeepPlanted = leftAnkle.y() > bacinoY + 0.45f
-        val isRightDeepPlanted = rightAnkle.y() > bacinoY + 0.45f
-
-        if (isLeftPlanted || isRightPlanted || isLeftDeepPlanted || isRightDeepPlanted) {
+        // Ulteriore check: Se il bacino è troppo vicino alla caviglia più bassa,
+        // è accovacciata o in equilibrio. Il salto prevede distacco dal suolo.
+        val highestAnkleY = kotlin.math.min(leftAnkle.y(), rightAnkle.y())
+        if (bacinoY > highestAnkleY) {
             return null
         }
 
+        // ==========================================
+        // ROTAZIONE
+        // ==========================================
         val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
         if (ultimaDirezioneSpalleDestra == null) {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
@@ -57,7 +65,7 @@ class SaltoCosacco : Difficolta {
         }
 
         // ==========================================
-        // IDENTIFICAZIONE GAMBE
+        // IDENTIFICAZIONE GAMBE (Regola Cosacco)
         // ==========================================
         val isLeftStraight = leftKneeAngle > 135.0
         val isRightStraight = rightKneeAngle > 135.0
@@ -69,13 +77,11 @@ class SaltoCosacco : Difficolta {
         }
 
         // ==========================================
-        // NUOVO FIREWALL DEFINITIVO: ANTI-SPACCATA
-        // (Salva Jeté, Enjambée, Biche e Butterfly)
+        // FIREWALL ANTI-SPACCATA
         // ==========================================
         val centroBacino = NormalizedLandmark.create(bacinoX, bacinoY, 0f)
         val angoloFemorale3D = PoseAnalyzer.calculateAngle3D(leftKnee, centroBacino, rightKnee)
 
-        // Calcolo ibrido 2D per sopravvivere alle rotazioni
         val vLKx = leftKnee.x() - bacinoX
         val vLKy = leftKnee.y() - bacinoY
         val vRKx = rightKnee.x() - bacinoX
@@ -88,39 +94,35 @@ class SaltoCosacco : Difficolta {
 
         val angoloFemorale = kotlin.math.max(angoloFemorale3D, angoloFemorale2D)
 
-        // REGOLA D'ORO: Nel Cosacco le ginocchia sono entrambe chiuse in avanti.
-        // Se le cosce formano un angolo superiore ai 110 gradi, è palesemente una spaccata
-        // (es. Jeté in rotazione), non un Cosacco! Si blocca immediatamente.
         if (angoloFemorale > 110.0) {
             return null
         }
 
         // ==========================================
-        // FIREWALL ANTI-INARCAMENTO (Flessione)
+        // FIREWALL ANTI-INARCAMENTO
         // ==========================================
-        // Se la ginnasta butta le spalle troppo indietro (flessione estrema in volo),
-        // è un Jeté con flessione. In un Cosacco il busto è eretto o piegato in avanti.
-        if (spallaY > bacinoY - 0.05f) {
+        // Usa il metro anatomico
+        if (spallaY > bacinoY - (scalaCorpo * 0.1f)) {
             return null
         }
-        // ==========================================
 
         val straightAnkle = if (isLeftStraight) leftAnkle else rightAnkle
         val straightToe = if (isLeftStraight) landmarks[31] else landmarks[32]
 
-        if (straightAnkle.y() > bacinoY + 0.15f) return null
+        // Usa metro anatomico per l'altezza gamba!
+        if (straightAnkle.y() > bacinoY + (scalaCorpo * 0.4f)) return null
 
         val leftWrist = landmarks[15]
         val rightWrist = landmarks[16]
 
         val distTestaPiede = PoseAnalyzer.calculateDistance3D(nose, straightToe)
-        val isGambaAlta = straightAnkle.y() < spallaY + 0.1f || distTestaPiede < 0.30f
+        val isGambaAlta = straightAnkle.y() < spallaY + (scalaCorpo * 0.3f) || distTestaPiede < (scalaCorpo * 0.8f)
 
         val distLeftWrist = PoseAnalyzer.calculateDistance3D(leftWrist, straightAnkle)
         val distRightWrist = PoseAnalyzer.calculateDistance3D(rightWrist, straightAnkle)
         val minWristDist = kotlin.math.min(distLeftWrist, distRightWrist)
 
-        val isConPresa = isGambaAlta && minWristDist <= 0.18f
+        val isConPresa = isGambaAlta && minWristDist <= (scalaCorpo * 0.5f)
 
         val tempoTrascorsoDaRotazione = System.currentTimeMillis() - tempoUltimaRotazione
         val isEnTournant = tempoTrascorsoDaRotazione < 1500L
@@ -142,11 +144,11 @@ class SaltoCosacco : Difficolta {
         var isValida = true
         var msgErrore = ""
 
-        if (straightAnkle.y() < spallaY + 0.1f) {
+        if (straightAnkle.y() < spallaY + (scalaCorpo * 0.3f)) {
             penalita += 0.0
-        } else if (straightAnkle.y() < bacinoY - 0.05f) {
+        } else if (straightAnkle.y() < bacinoY - (scalaCorpo * 0.1f)) {
             penalita += 0.10
-        } else if (straightAnkle.y() <= bacinoY + 0.15f) {
+        } else if (straightAnkle.y() <= bacinoY + (scalaCorpo * 0.4f)) {
             penalita += if (isGambaAlta) 0.30 else 0.10
         } else {
             penalita += 0.50

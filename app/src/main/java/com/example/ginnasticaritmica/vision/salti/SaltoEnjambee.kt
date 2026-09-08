@@ -4,7 +4,6 @@ import com.example.ginnasticaritmica.vision.Difficolta
 import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
-import kotlin.math.abs
 
 class SaltoEnjambee : Difficolta {
     override var nome = "SALTO ENJAMBÉE"
@@ -17,6 +16,11 @@ class SaltoEnjambee : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // 1. SCUDO ANTI-GIRO: Se un giro è in corso, non è un salto!
+        if (com.example.ginnasticaritmica.vision.giri.LucchettoGiri.giroAttivo != null) {
+            return null
+        }
+
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftKnee = landmarks[25]
@@ -28,21 +32,34 @@ class SaltoEnjambee : Difficolta {
         val bacinoX = (leftHip.x() + rightHip.x()) / 2f
 
         // ==========================================
-        // 1. FIREWALL ANTI-EQUILIBRIO (FILTRO PILASTRO)
+        // 1. FIREWALL BIOMECCANICO ANTI-GIRO E ANTI-EQUILIBRIO
         // ==========================================
-        // Calcoliamo se la gamba è un "Pilastro" (perfettamente verticale).
-        // Se la caviglia è esattamente sotto l'anca (distanza X minima, distanza Y ampia),
-        // la ginnasta è palesemente in appoggio sul pavimento (In piedi o in Penché).
-        val dxLeft = abs(leftAnkle.x() - leftHip.x())
-        val dyLeft = leftAnkle.y() - leftHip.y()
-        val isLeftPillar = dyLeft > 0.20f && dxLeft < 0.20f
+        // Calcoliamo la lunghezza del femore per rendere l'algoritmo immune allo zoom della telecamera!
+        val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
+        val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
+        val femoreMedio = (femoreSx + femoreDx) / 2f
 
-        val dxRight = abs(rightAnkle.x() - rightHip.x())
-        val dyRight = rightAnkle.y() - rightHip.y()
-        val isRightPillar = dyRight > 0.20f && dxRight < 0.20f
+        val isLeftLowest = leftAnkle.y() > rightAnkle.y()
+        val lowestAnkle = if (isLeftLowest) leftAnkle else rightAnkle
+        val hipOfLowestAnkle = if (isLeftLowest) leftHip else rightHip
 
-        if (isLeftPillar || isRightPillar) {
-            return null // Blocca il salto: c'è un piede piantato a terra a fare da pilastro!
+        // CONTROLLO 1: SPACCATA VERTICALE VS ORIZZONTALE
+        val differenzaYCaviglie = kotlin.math.abs(leftAnkle.y() - rightAnkle.y())
+
+        // Se la differenza di altezza tra le caviglie è maggiore di un femore e mezzo,
+        // significa palesemente che una gamba punta a terra e l'altra è sparata in alto.
+        // Questo è un Penché o un'Illusion, NON un Enjambé!
+        if (differenzaYCaviglie > femoreMedio * 1.5f) {
+            return null // Blocca il salto istantaneamente. Lascia girare la ginnasta!
+        }
+
+        // CONTROLLO 2: PIEDE A TERRA A FARE DA PILASTRO
+        val distAncaCavigliaY = lowestAnkle.y() - hipOfLowestAnkle.y()
+
+        // Se la gamba di supporto scende dritta verso il basso (lunga quasi 2 femori sull'asse Y),
+        // l'atleta è ancorata a terra e non sta volando.
+        if (distAncaCavigliaY > femoreMedio * 1.8f) {
+            return null // È a terra! Non è un salto.
         }
 
         // ==========================================
@@ -92,11 +109,22 @@ class SaltoEnjambee : Difficolta {
         var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dot / (magF * magB)))
         if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
 
+        // ==========================================
+        // 3. CALCOLO SPACCATA (Correzione Orizzontalità)
+        // ==========================================
+
+        // Verifica matematica della divergenza: le gambe si stanno aprendo in direzioni opposte sull'asse X?
         val isOppositeHorizontal = (vFrontX > 0 && vBackX < 0) || (vFrontX < 0 && vBackX > 0)
+
         if (isOppositeHorizontal) {
+            //Caviglia anteriore e ginocchio posteriore sono allineati orizzontalmente col bacino
             if (frontAnkle.y() <= bacinoY + 0.05f && backKnee.y() <= bacinoY + 0.05f) {
+                //si forza l'angolo a 180° per annullare lo schiacciamento prospettico (distorsione 2D della fotocamera)
                 angoloSpaccata2D = 180.0
+
+                //Gli arti sono quasi in asse orizzontale, ma leggermente più bassi del bacino
             } else if (frontAnkle.y() <= bacinoY + 0.15f && backKnee.y() <= bacinoY + 0.15f) {
+                //si estrae il massimo garantendo almeno 165° per evitare penalità ingiuste dovute all'inquadratura
                 angoloSpaccata2D = kotlin.math.max(angoloSpaccata2D, 165.0)
             }
         }
@@ -129,7 +157,6 @@ class SaltoEnjambee : Difficolta {
                 (schiacciamentoTroncoY < 0.0f)
 
         val isBoucle = backKneeAngle <= 135.0 && distanzaTestaPiede <= 0.25f
-
         val isFlessione = !isBoucle && (isFlessioneEvidente || (backKneeAngle > 135.0 && distanzaTestaPiede <= 0.20f))
 
         if (isBoucle) {

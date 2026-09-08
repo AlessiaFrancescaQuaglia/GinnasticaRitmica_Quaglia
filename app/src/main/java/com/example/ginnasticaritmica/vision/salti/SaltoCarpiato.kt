@@ -16,6 +16,10 @@ class SaltoCarpiato : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // 1. SCUDO ANTI-GIRO: Se un giro è in corso, non è un salto!
+        if (com.example.ginnasticaritmica.vision.giri.LucchettoGiri.giroAttivo != null) {
+            return null
+        }
         val leftHip = landmarks[23]
         val rightHip = landmarks[24]
         val leftKnee = landmarks[25]

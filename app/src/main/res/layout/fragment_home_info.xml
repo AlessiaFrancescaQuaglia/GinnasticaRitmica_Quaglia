@@ -20,14 +20,14 @@
                 android:id="@+id/imgLogoHome"
                 android:layout_width="150dp"
                 android:layout_height="150dp"
-                android:src="@drawable/logo"
+                android:src="@drawable/icona"
                 android:contentDescription="Logo della società Ritmica La Torre"
                 android:layout_gravity="center"
                 android:layout_marginBottom="24dp" />
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="ASD RITMICA LA TORRE"
+                android:text="AlgoRitmica"
                 android:textSize="26sp"
                 android:textStyle="bold"
                 android:textColor="@color/viola_torre"

@@ -5,6 +5,7 @@ import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RegoleGinnastica
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
 
 class EquilibrioBoucle : Difficolta {
     override var nome = "BOUCLE (Anello)"
@@ -32,6 +33,14 @@ class EquilibrioBoucle : Difficolta {
         val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
         val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
 
+
+        if (landmarks.size <= 32) return null
+
+        // SCUDO ANTI-ROTAZIONE: Se la ginnasta sta girando, non può essere un equilibrio!
+        if (LucchettoGiri.giroAttivo != null) {
+            return null
+        }
+
         if (!isLeftPlanted && !isRightPlanted) {
             return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
         }
@@ -50,10 +59,6 @@ class EquilibrioBoucle : Difficolta {
         }
 
         val ancaAppoggio = if (isAppoggioLeft) leftHip else rightHip
-        val ginocchioAppoggio = if (isAppoggioLeft) leftKnee else rightKnee
-        val cavigliaAppoggio = if (isAppoggioLeft) leftAnkle else rightAnkle
-
-        val ancaLibera = if (isLeftLifted) leftHip else rightHip
         val ginocchioSollevato = if (isLeftLifted) leftKnee else rightKnee
         val cavigliaSollevata = if (isLeftLifted) leftAnkle else rightAnkle
         val nose = landmarks[0]

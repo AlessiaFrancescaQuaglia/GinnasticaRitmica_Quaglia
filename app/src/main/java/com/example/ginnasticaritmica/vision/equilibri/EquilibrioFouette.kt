@@ -5,6 +5,7 @@ import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RegoleGinnastica
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
 
 class EquilibrioFouette : Difficolta {
     override var nome = "FOUETTÉ"
@@ -92,12 +93,12 @@ class EquilibrioFouette : Difficolta {
 
             // Item 2.1805: Minimo 2 forme SOPRA l'orizzontale
             if (countFormeAlte >= 2) {
-                nome = "FOUETTÉ (Gamba alta)"
+                nome = "EQUILIBRIO FOUETTÉ (Gamba alta)"
                 valoreFinale = 0.50
             }
             // Item 2.1803: Minimo 2 forme ALL'orizzontale (o 1 orizzontale e 1 alta)
             else if ((countFormeOrizzontali + countFormeAlte) >= 2) {
-                nome = "FOUETTÉ (Gamba orizzontale)"
+                nome = "EQUILIBRIO FOUETTÉ (Gamba orizzontale)"
                 valoreFinale = 0.30
             }
 

@@ -5,9 +5,10 @@ import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RegoleGinnastica
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
 
 class EquilibrioPasse : Difficolta {
-    override val nome = "PASSÉ"
+    override val nome = "EQUILIBRIO PASSÉ"
 
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
@@ -31,6 +32,15 @@ class EquilibrioPasse : Difficolta {
 
         val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
         val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
+
+
+        if (landmarks.size <= 32) return null
+
+        // SCUDO ANTI-ROTAZIONE: Se la ginnasta sta girando, non può essere un equilibrio!
+        if (LucchettoGiri.giroAttivo != null) {
+            return null
+        }
+
 
         if (!isLeftPlanted && !isRightPlanted) {
             return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!

@@ -7,6 +7,7 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.abs
 import kotlin.math.atan2
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
 
 class EquilibrioGrandEcart : Difficolta {
     override var nome = "GRAND ÉCART AVANTI"
@@ -38,6 +39,15 @@ class EquilibrioGrandEcart : Difficolta {
         val isLeftLowest = leftAnkle.y() > rightAnkle.y()
         val lowestAnkleY = if (isLeftLowest) leftAnkle.y() else rightAnkle.y()
         val lowestKneeAngle = if (isLeftLowest) leftKneeAngle else rightKneeAngle
+
+
+        if (landmarks.size <= 32) return null
+
+        // SCUDO ANTI-ROTAZIONE: Se la ginnasta sta girando, non può essere un equilibrio!
+        if (LucchettoGiri.giroAttivo != null) {
+            return null
+        }
+
 
         // Se la caviglia scende, MA il ginocchio è piegato (come in un salto cosacco),
         // è fisicamente impossibile che stia sorreggendo un Grand Ecart. È in volo!
@@ -116,18 +126,18 @@ class EquilibrioGrandEcart : Difficolta {
         var valoreBase = 0.0
 
         if (gradiBustoIndietro > 110.0) {
-            nome = "GRAND ÉCART AVANTI (Sotto orizz.)"
+            nome = "EQUILIBRIO GRAND ÉCART AVANTI (Sotto orizz.)"
             valoreBase = 0.60
         } else if (gradiBustoIndietro in 70.0..110.0) {
             if (conAiuto) {
-                nome = "GRAND ÉCART AVANTI (Busto orizz. con aiuto)"
+                nome = "EQUILIBRIO GRAND ÉCART AVANTI (con aiuto)"
                 valoreBase = 0.40
             } else {
-                nome = "GRAND ÉCART AVANTI (Busto orizz. senza aiuto)"
+                nome = "EQUILIBRIO GRAND ÉCART AVANTI (senza aiuto)"
                 valoreBase = 0.60
             }
         } else {
-            nome = if (conAiuto) "GRAND ÉCART AVANTI (Con aiuto)" else "GRAND ÉCART AVANTI (Senza aiuto)"
+            nome = if (conAiuto) "EQUILIBRIO GRAND ÉCART AVANTI (Con aiuto)" else "EQUILIBRIO GRAND ÉCART AVANTI (Senza aiuto)"
             valoreBase = if (conAiuto) 0.30 else 0.50
         }
 

@@ -1,73 +1,105 @@
 package com.example.ginnasticaritmica.vision
 
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
-import kotlin.math.abs
 import kotlin.math.acos
-import kotlin.math.atan2
-import kotlin.math.hypot
 import kotlin.math.sqrt
+
 
 object PoseAnalyzer {
 
-    // Calcola l'angolo interno in gradi tra 3 punti
-    fun calculateAngle(
-        firstPoint: NormalizedLandmark, // Es: Anca
-        midPoint: NormalizedLandmark,   // Es: Ginocchio (vertice)
-        lastPoint: NormalizedLandmark   // Es: Caviglia
-    ): Double {
-        val angle = atan2(lastPoint.y() - midPoint.y(), lastPoint.x() - midPoint.x()) -
-                atan2(firstPoint.y() - midPoint.y(), firstPoint.x() - midPoint.x())
 
-        var degrees = angle * (180.0 / Math.PI)
-        degrees = abs(degrees)
+    // MOTORE DI DEDUZIONE VETTORIALE
+    /**
+     * Valuta la "Confidence Score" assegnata dalla rete neurale al singolo punto.
+     * @param landmark Il punto articolare da verificare.
+     * @return True se l'Intelligenza Artificiale è sufficientemente sicura della stima.
+     */
+    fun isAffidabile(landmark: NormalizedLandmark): Boolean {
+        // Estrae il dato di visibilità probabilistica generato da MediaPipe.
+        val visibilita = if (landmark.visibility().isPresent) landmark.visibility().get() else 1.0f
+        return visibilita > 0.50f // Soglia base (50%) - Scarta i punti ad alto rischio di rumore
+    }
 
-        if (degrees > 180.0) {
-            degrees = 360.0 - degrees
+    /**
+     * Risoluzione avanzata delle "Occlusioni Anatomiche" (es. Boucle o Presa).
+     * Quando l'atleta inarca profondamente la schiena e piega la gamba, la testa o il busto nascondono
+     * visivamente le estremità posteriori (caviglie/piedi) all'obiettivo della telecamera.
+     * Questo metodo "inventa" matematicamente la posizione della caviglia nascosta
+     * sfruttando la rigidità intrinseca delle proporzioni anatomiche.
+     */
+    fun getCavigliaIntelligente(
+        hip: NormalizedLandmark,
+        knee: NormalizedLandmark,
+        ankle: NormalizedLandmark
+    ): NormalizedLandmark {
+
+        // Se MediaPipe vede bene la caviglia (non è oscurata dal corpo), la usiamo senza problemi.
+        if (isAffidabile(ankle)) {
+            return ankle
         }
 
-        return degrees
+        // Se la caviglia è invisibile, LA DEDUCIAMO TRAMITE ESTRAPOLAZIONE VETTORIALE
+        // 1. Calcoliamo il vettore direzionale 3D del segmento superiore (Anca - Ginocchio).
+        val dx = knee.x() - hip.x()
+        val dy = knee.y() - hip.y()
+        val dz = knee.z() - hip.z()
+
+        // 2. Assumiamo che la tibia abbia una lunghezza proporzionale e allineata rispetto al femore
+        // (rapporto standard approssimato a 1.05 per le leve umane).
+        // Proiettiamo il punto nello spazio 3D spingendoci oltre il ginocchio, lungo il medesimo vettore.
+        val extrapolatedX = knee.x() + (dx * 1.05f)
+        val extrapolatedY = knee.y() + (dy * 1.05f)
+        val extrapolatedZ = knee.z() + (dz * 1.05f)
+
+        // Restituiamo un "Landmark Virtuale" iniettandolo nel calcolo.
+        // Questo stratagemma salva il tracciamento dei Salti con inarcamento profondo (Boucle)
+        // isolando il sistema dalle alterazioni indotte dalla mancata visione della tibia reale.
+        return NormalizedLandmark.create(extrapolatedX, extrapolatedY, extrapolatedZ)
     }
 
-    // Calcola la distanza tra due punti (es. per vedere se la mano tocca il piede)
-    fun calculateDistance(point1: NormalizedLandmark, point2: NormalizedLandmark): Double {
-        return hypot((point2.x() - point1.x()).toDouble(), (point2.y() - point1.y()).toDouble())
-    }
-
-
-    // Aggiungi questa funzione nel tuo PoseAnalyzer
+    // FUNZIONI MATEMATICHE 3D (PRODOTTO SCALARE)
+    /**
+     * Motore matematico che sostituisce i calcoli planari 2D.
+     * Calcola l'ampiezza spaziale reale dell'angolo formato da tre punti nello spazio.
+     */
     fun calculateAngle3D(
-        firstPoint: NormalizedLandmark,
-        midPoint: NormalizedLandmark,
-        lastPoint: NormalizedLandmark
+        firstPoint: NormalizedLandmark, // Es. Caviglia
+        midPoint: NormalizedLandmark,   // Es. Bacino (Fulcro dell'angolo)
+        lastPoint: NormalizedLandmark   // Es. Spalla
     ): Double {
-        // Vettore A (da centro a primo punto)
+        // 1. Derivazione dei vettori tridimensionali incidenti nel fulcro
         val ax = firstPoint.x() - midPoint.x()
         val ay = firstPoint.y() - midPoint.y()
-        val az = firstPoint.z() - midPoint.z() // Usiamo la profondità!
+        val az = firstPoint.z() - midPoint.z()
 
-        // Vettore B (da centro a secondo punto)
         val bx = lastPoint.x() - midPoint.x()
         val by = lastPoint.y() - midPoint.y()
         val bz = lastPoint.z() - midPoint.z()
 
-        // Prodotto scalare
+        // 2. Applicazione del Prodotto Scalare
         val dotProduct = (ax * bx) + (ay * by) + (az * bz)
 
-        // Magnitudine (lunghezza 3D dei vettori)
+        // 3. Calcolo delle Norme Euclidee
         val magA = sqrt((ax * ax + ay * ay + az * az).toDouble())
         val magB = sqrt((bx * bx + by * by + bz * bz).toDouble())
 
+        // Prevenzione di divisioni per zero
         if (magA == 0.0 || magB == 0.0) return 0.0
 
-        // Calcolo dell'angolo in radianti e conversione in gradi
+        // Teorema del Coseno. La limitazione compensa gli errori di approssimazione in virgola mobile
+        // causati dai processori, evitando che il valore sfori il dominio [-1, 1] e causi crash matematici
         val cosTheta = dotProduct / (magA * magB)
-        // Evitiamo errori di arrotondamento fuori da [-1, 1]
         val validCos = (-1.0).coerceAtLeast(1.0.coerceAtMost(cosTheta))
 
+        // Ritorna il grado angolare effettivo (indipendente dalla parallasse della telecamera)
         return Math.toDegrees(acos(validCos))
     }
 
-    // Aggiungi anche questa per la distanza 3D (più precisa)
+    /**
+     * Calcola la Distanza Euclidea 3D pura tra due punti (Norma del vettore).
+     * Indispensabile per lo "Scudo di Profondità" e per le validazioni di prossimità spaziale
+     * (esempio distinguere la vicinanza tra ginocchio e caviglia nel Passé vs. Attitude).
+     */
     fun calculateDistance3D(p1: NormalizedLandmark, p2: NormalizedLandmark): Float {
         val dx = p1.x() - p2.x()
         val dy = p1.y() - p2.y()
