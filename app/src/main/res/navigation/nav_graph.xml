@@ -33,9 +33,6 @@
         android:label="Dashboard Allenatrice"
         tools:layout="@layout/fragment_coach_dashboard">
         <action
-            android:id="@+id/action_coachDashboard_to_liveScoring"
-            app:destination="@id/liveScoringFragment" />
-        <action
             android:id="@+id/action_coachDashboard_to_gestioneAtlete"
             app:destination="@id/gestioneAtleteFragment" />
         <action
@@ -81,12 +78,6 @@
         android:name="com.example.ginnasticaritmica.ui.fragment.PresenzeFragment"
         android:label="Registro Appello"
         tools:layout="@layout/fragment_presenze" />
-
-    <fragment
-        android:id="@+id/liveScoringFragment"
-        android:name="com.example.ginnasticaritmica.ui.fragment.LiveScoringFragment"
-        android:label="Live Scoring"
-        tools:layout="@layout/fragment_live_scoring" />
 
     <fragment
         android:id="@+id/athleteDashboardFragment"
