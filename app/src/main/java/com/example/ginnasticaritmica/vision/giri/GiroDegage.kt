@@ -6,9 +6,18 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.max
 
+/**
+ * Modulo dedicato all'analisi del "Pivot Dégagé" (Giro con gamba sollevata orizzontalmente).
+ * Questa classe gestisce il deterioramento della posa durante l'evoluzione cinetica.
+ * Implementa un concetto di memoria:se l'atleta raggiunge la perfetta estensione della gamba
+ * durante la rotazione, il sistema "congela" la forma,
+ * compensando la fisiologica perdita di quota dovuta alla forza centrifuga.
+ */
 class GiroDegage : Difficolta {
     override var nome = "PIVOT DÉGAGÉ"
 
+
+    // MACCHINA A STATi
     companion object {
         private var mezziGiriCompletati = 0
         private var statoFronteRetro = 0
@@ -16,6 +25,8 @@ class GiroDegage : Difficolta {
         private var timestampUltimoSwap = 0L
         private var isGiroInCorso = false
         private var isFormaBloccata = false
+
+        // Latch di massimizzazione del punteggio
         private var isGambaTesaLocked = false
         private var timestampGambaGiu = 0L
 
@@ -25,6 +36,7 @@ class GiroDegage : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // Mutua Esclusione: garantisce che un solo analizzatore di giri sia attivo
         val idGiroFisso = this.javaClass.simpleName
         if (!LucchettoGiri.possoValutare(idGiroFisso)) return null
 
@@ -60,14 +72,18 @@ class GiroDegage : Difficolta {
         val sogliaSwap = max(0.005f, scalaCorpo * 0.04f)
         val statoAttualeSpalle = if (dxSpalle > sogliaSwap) 1 else if (dxSpalle < -sogliaSwap) -1 else 0
 
-        // ==========================================
-        // 1. VERIFICA POSA E AGGANCIO FORMA
-        // ==========================================
+
+        // VERIFICA POSA E AGGANCIO FORMA
         if (!isFormaBloccata) {
 
             if (supportAnkle.y() < bacinoY + (scalaCorpo * 1.0f)) return null
             if (spallaY > bacinoY + (scalaCorpo * 0.1f)) return null
 
+            // Fusione Sensoriale 2D/3D
+            // Quando la gamba è puntata direttamente verso la telecamera, MediaPipe
+            // fatica a stimare la profondità (Z). L'algoritmo calcola l'angolo
+            // di sollevamento sia in 2D che in 3D e sceglie il più severo (minimo)
+            // per evitare di validare finte flessibilità create dalla distorsione ottica.
             val midShoulder = NormalizedLandmark.create(spallaCenterX, spallaY, spallaCenterZ)
             val midHip = NormalizedLandmark.create(bacinoCenterX, bacinoY, bacinoCenterZ)
             val angleSpineThigh3D = PoseAnalyzer.calculateAngle3D(midShoulder, midHip, liftedKnee)
@@ -78,12 +94,16 @@ class GiroDegage : Difficolta {
 
             val isGambaAlta = liftedAnkle.y() < bacinoY + (scalaCorpo * 0.35f)
             val isAngoloAperto = liftedKneeAngle >= 100.0
+
+            // Sensore Anti-Passé
             val distPiedeGinocchio = PoseAnalyzer.calculateDistance3D(liftedAnkle, supportKnee)
             val isNonPasse = distPiedeGinocchio > (scalaCorpo * 0.4f)
 
             if (!(isGambaAlta && isAngoloAperto && isNonPasse)) return null
 
-            // REGOLE MORBIDE PER GAMBA TESA (>= 135.0)
+            // REGOLE PER GAMBA TESA
+            // La soglia di tensione è leggermente abbassata a 135° rispetto al canonico 160°
+            // per compensare le pieghe anatomiche introdotte dalla rotazione.
             isGambaTesaLocked = liftedKneeAngle >= 135.0
             isFormaBloccata = true
 
@@ -93,12 +113,12 @@ class GiroDegage : Difficolta {
             timestampUltimoSwap = System.currentTimeMillis()
 
         } else {
-            // ==========================================
-            // 2. FASE DI ROTAZIONE E MEMORIA MUSCOLARE
-            // ==========================================
 
-            // LA MEMORIA MUSCOLARE: Se in qualsiasi momento del giro la gamba si stende (>= 135.0),
-            // viene marchiata a fuoco come GAMBA TESA per sempre! Non torna più flessa.
+            // FASE DI ROTAZIONE E MEMORIA MUSCOLARE
+            // Logica premiante introdotta per rispecchiare il Codice F.I.G.
+            // Se in qualsiasi momento del giro la gamba si stende (>= 135.0), il parametro
+            // rimane GAMBA TESA per l'intera esecuzione.
+            // Non subisce downgrade (retrocessioni di punteggio) se l'atleta dovesse piegarla successivamente.
             if (liftedKneeAngle >= 135.0) {
                 isGambaTesaLocked = true
             }
@@ -109,7 +129,9 @@ class GiroDegage : Difficolta {
                 }
             }
 
-            // Timeout prolungato a 1.2s per consentire i movimenti di Plié nei Fouetté
+            // Watchdog Timer asimmetrico:
+            // Timeout prolungato a 1.2s per consentire i movimenti di Plié nei Fouetté,
+            // permettendo alla gamba di abbassarsi momentaneamente senza resettare il giro.
             if (liftedAnkle.y() > supportKnee.y()) {
                 if (timestampGambaGiu == 0L) {
                     timestampGambaGiu = System.currentTimeMillis()
@@ -141,9 +163,10 @@ class GiroDegage : Difficolta {
             }
         }
 
-        // ==========================================
-        // 3. MOTORE HYSTERESIS X-SWAP
-        // ==========================================
+
+        // Monitoraggio delle inversioni di segno del delta X tra le spalle (Zero-Crossing).
+        // Ogni attraversamento pulito e oltre la soglia del tempo di refrattarietà (150ms)
+        // viene registrato come una semi-rotazione esatta di 180°.
         if (isFormaBloccata) {
             if (statoFronteRetro == 0 && statoAttualeSpalle != 0) {
                 statoFronteRetro = statoAttualeSpalle
@@ -165,20 +188,24 @@ class GiroDegage : Difficolta {
             }
         }
 
-        // ==========================================
-        // 4. GESTIONE LUCCHETTI ED EQUILIBRI
-        // ==========================================
+
+        //GESTIONE LUCCHETTI ED EQUILIBRI
         if (!isGiroInCorso) {
             return null
         }
 
+        // Finché il Dégagé gira, nessun'altra difficoltà può essere analizzata.
         LucchettoGiri.blocca(idGiroFisso)
 
+        // Ricomposizione rotazioni (Giri completi da 360°)
         val giriCompletati = mezziGiriCompletati / 2
+
+        // Albero decisionale del Valore Base (0.30 vs 0.10) dipendente dal Latch di tensione
         val valoreBaseDifficolta = if (isGambaTesaLocked) 0.30 else 0.10
         val valoreTotale = if (giriCompletati >= 1) valoreBaseDifficolta + ((giriCompletati - 1) * 0.10) else 0.0
         val etichettaGiro = if (isGambaTesaLocked) "GAMBA TESA (0.30)" else "GAMBA FLESSA (0.10)"
 
+        // UI Builder in tempo reale
         nome = if (giriCompletati >= 1) {
             "PIVOT DÉGAGÉ $etichettaGiro ($giriCompletati Giri)"
         } else {
@@ -188,6 +215,11 @@ class GiroDegage : Difficolta {
         return RisultatoDifficolta(true, valoreTotale, 0.0, true, "")
     }
 
+    /**
+     * Calcolo Arcotangente 2D.
+     * Formula matematica ausiliaria utilizzata nel blocco di fusione sensoriale
+     * per quantificare l'angolo sul piano bidimensionale dello schermo.
+     */
     private fun calculateAngle2D(p1: NormalizedLandmark, p2: NormalizedLandmark, p3: NormalizedLandmark): Double {
         val rad = kotlin.math.atan2((p3.y() - p2.y()).toDouble(), (p3.x() - p2.x()).toDouble()) -
                 kotlin.math.atan2((p1.y() - p2.y()).toDouble(), (p1.x() - p2.x()).toDouble())
@@ -196,6 +228,8 @@ class GiroDegage : Difficolta {
         if (deg > 180.0) deg = 360.0 - deg
         return deg
     }
+
+     //Distruttore di Stato .
 
     private fun resetGiro() {
         mezziGiriCompletati = 0

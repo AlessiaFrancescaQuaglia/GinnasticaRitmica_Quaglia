@@ -6,9 +6,20 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.max
 
+/**
+ * Modulo dedicato al tracciamento del "Pivot En Passé" (Rotazione con gamba flessa al ginocchio).
+ * Rappresenta la figura rotazionale di base. Dal punto di vista della Computer Vision,
+ * eredita la problematica di "Occlusione" (piede fuso con il ginocchio) dell'Equilibrio Passé,
+ * aggravandola con le auto-occlusioni dinamiche causate dal corpo in rotazione.
+ * La classe implementa una Macchina a Stati Finiti (FSM) reattiva, capace di abortire
+ * istantaneamente l'analisi tramite interrupt continui (Scudo Anti-Penché).
+ */
 class GiroPasse : Difficolta {
     override var nome = "PIVOT EN PASSÉ"
 
+    // MEMORIA DI STATO (FSM - Finite State Machine)
+    // Variabili statiche che persistono tra i cicli di clock
+    // per tracciare l'evoluzione del movimento nel dominio del tempo.
     companion object {
         private var mezziGiriCompletati = 0
         private var statoFronteRetro = 0
@@ -16,6 +27,7 @@ class GiroPasse : Difficolta {
         private var timestampUltimoSwap = 0L
         private var isGiroInCorso = false
 
+        // congela l'avvenuto riconoscimento iniziale
         private var isFormaBloccata = false
 
         private var gambaDiSupportoIsLeft: Boolean? = null
@@ -25,6 +37,7 @@ class GiroPasse : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // Gestione Concorrenza: Se il thread è bloccato da un altro Pivot, esce.
         val idGiroFisso = this.javaClass.simpleName
         if (!LucchettoGiri.possoValutare(idGiroFisso)) return null
 
@@ -48,26 +61,25 @@ class GiroPasse : Difficolta {
 
         val scalaCorpo = PoseAnalyzer.calculateDistance3D(leftShoulder, leftHip)
 
-        // ==========================================
-        // 0. FIREWALL BASE & RESET DINAMICO
-        // ==========================================
-        // Anti-Capriola
+
+        // FIREWALL BASE e RESET DINAMICO
+        // Verifica l'ancoraggio del piede portante a terra.
         if (supportAnkle.y() < bacinoY + (scalaCorpo * 1.2f)) {
             resetGiro()
             return null
         }
 
-        // ==========================================
-        // LO SCUDO ANTI-PENCHÉ SUPREMO
-        // ==========================================
-        // È messo fuori da ogni blocco: viene valutato in OGNI frame.
-        // Se la spalla si abbassa troppo (la ginnasta si piega in avanti),
-        // il Passé si azzera all'istante e sblocca il lucchetto!
+
+        // LO SCUDO ANTI-PENCHÉ
+        // il Passé impone un busto perfettamente verticale. Se l'atleta crolla in avanti (Flessione Y),
+        // questo blocco funge da interruttore .
+        // Essendo (!isFormaBloccata), viene interrogato a ogni frame. Se scatta, il Mutex globale viene liberato immediatamente.
         if (spallaY > bacinoY - (scalaCorpo * 0.35f)) {
             resetGiro()
             return null
         }
 
+        // Watchdog Timer per la caduta della gamba libera
         val ginocchioSupportoY = if (isLeftLowest) leftKnee.y() else rightKnee.y()
         if (liftedAnkle.y() > ginocchioSupportoY) {
             if (!isFormaBloccata) {
@@ -77,6 +89,8 @@ class GiroPasse : Difficolta {
                 if (timestampGambaGiu == 0L) {
                     timestampGambaGiu = System.currentTimeMillis()
                 } else if (System.currentTimeMillis() - timestampGambaGiu > 800L) {
+                    // Timeout elastico di 800ms per compensare il fisiologico "Plié"
+                    // di assestamento tra un giro e l'altro senza resettare il contatore.
                     if (!isGiroInCorso) {
                         resetGiro()
                         return null
@@ -84,12 +98,11 @@ class GiroPasse : Difficolta {
                 }
             }
         } else {
-            timestampGambaGiu = 0L
+            timestampGambaGiu = 0L // Riarmo del timer
         }
 
-        // ==========================================
-        // 1. VERIFICA POSA E LATCH FORMA
-        // ==========================================
+
+        //VERIFICA POSA E  FORMA
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
         val liftedKneeAngle = if (isLeftLowest) rightKneeAngle else leftKneeAngle
@@ -99,29 +112,36 @@ class GiroPasse : Difficolta {
         val statoAttualeSpalle = if (dxSpalle > sogliaSwap) 1 else if (dxSpalle < -sogliaSwap) -1 else 0
 
         if (!isFormaBloccata) {
+            // Sensore di Prossimità 3D: Calcola la distanza Norma Euclidea tra piede e ginocchio.
             val distAnkleToKnee = PoseAnalyzer.calculateDistance3D(liftedAnkle, supportKnee)
 
-            // Anatomico: Ginocchio sollevato, chiuso e PIEDE STRETTAMENTE ATTACCATO!
+            // Requisiti Anatomici:
+            // 1. Coscia sollevata rispetto al bacino
+            // 2. Ginocchio rigorosamente chiuso (< 105°)
             val isGinocchioAlto = liftedKnee.y() < bacinoY + (scalaCorpo * 0.3f)
             val isGinocchioChiuso = liftedKneeAngle < 105.0
 
-            // La tolleranza è dimezzata: ora il piede deve essere davvero vicino al ginocchio.
+            // Restrizione Tolleranza Spaziale: per distinguere il Passé da un Attitude, il sensore
+            // di prossimità è impostato su soglie stringenti. Il piede deve toccare il ginocchio.
             val isPiedeAlGinocchio = distAnkleToKnee < (scalaCorpo * 0.4f)
 
             if (!(isGinocchioAlto && isGinocchioChiuso && isPiedeAlGinocchio)) return null
 
             gambaDiSupportoIsLeft = isLeftLowest
             isFormaBloccata = true
+
+            // Lock del Mutex: la figura è certificata, si inibiscono le altre classi
             LucchettoGiri.blocca(idGiroFisso)
 
             statoFronteRetro = statoAttualeSpalle
             timestampUltimoFrameBusto = System.currentTimeMillis()
             timestampUltimoSwap = System.currentTimeMillis()
 
-            // Zero "Preparazione...": Subito in rotazione!
+            // Transizione istantanea nello stato "Rotazione"
             isGiroInCorso = true
         } else {
-            // Se la gamba si allontana o cede, sblocca
+            // Se la gamba si allontana dal ginocchio di terra o cede verso il basso,
+            // si attiva un timer di degradamento progressivo
             val distAnkleToKnee = PoseAnalyzer.calculateDistance3D(liftedAnkle, supportKnee)
             val isAncoraInPasse = (liftedKnee.y() < bacinoY + (scalaCorpo * 0.6f)) && (distAnkleToKnee < (scalaCorpo * 0.6f))
 
@@ -141,9 +161,9 @@ class GiroPasse : Difficolta {
             }
         }
 
-        // ==========================================
-        // 3. MOTORE ADATTIVO X-SWAP CON RICARICA
-        // ==========================================
+
+        // MOTORE X-SWAP
+        // Valuta l'attraversamento dello zero dell'asse X delle spalle.
         if (isFormaBloccata) {
             if (statoFronteRetro == 0 && statoAttualeSpalle != 0) {
                 statoFronteRetro = statoAttualeSpalle
@@ -151,6 +171,7 @@ class GiroPasse : Difficolta {
             } else if (statoFronteRetro != 0 && statoAttualeSpalle != 0 && statoAttualeSpalle != statoFronteRetro) {
                 val tempoDalUltimoSwap = System.currentTimeMillis() - timestampUltimoSwap
 
+                // Finestra per inibire i micro-rimbalzi del tensore ottico
                 if (tempoDalUltimoSwap > 150L) {
                     mezziGiriCompletati++
                     statoFronteRetro = statoAttualeSpalle
@@ -166,14 +187,14 @@ class GiroPasse : Difficolta {
 
         if (giriCompletati == 0 && mezziGiriCompletati == 0 && !isFormaBloccata) return null
 
-        // ==========================================
-        // 4. RESTITUZIONE PUNTEGGIO
-        // ==========================================
-        val valoreBaseDifficolta = 0.10
+
+        //RESTITUZIONE PUNTEGGIO
+        val valoreBaseDifficolta = 0.10 // Valore base FIG per il Passé
         val valoreTotale = if (giriCompletati >= 1) valoreBaseDifficolta + ((giriCompletati - 1) * 0.10) else 0.0
 
         val etichettaFinale = "PIVOT EN PASSÉ"
 
+        // Renderizza il progresso in tempo reale sul Display
         nome = if (giriCompletati >= 1) {
             "$etichettaFinale ($giriCompletati Giri)"
         } else {
@@ -183,6 +204,9 @@ class GiroPasse : Difficolta {
         return RisultatoDifficolta(true, valoreTotale, 0.0, true, "")
     }
 
+    /**
+     * Svuotamento buffer di memoria e rilascio forzato del Semaforo Mutex.
+     */
     private fun resetGiro() {
         mezziGiriCompletati = 0
         statoFronteRetro = 0

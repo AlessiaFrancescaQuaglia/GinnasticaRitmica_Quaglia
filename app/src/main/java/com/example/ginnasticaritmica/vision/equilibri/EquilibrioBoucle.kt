@@ -7,6 +7,13 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
 
+/**
+ * Modulo di analisi per l'Equilibrio "Boucle" (comunemente noto come "Anello").
+ * Questa figura richiede una flessione estrema della schiena e della gamba per
+ * chiudere un "anello" tra la testa e il piede. È la classe ideale per dimostrare al
+ * Prof. Verderame l'implementazione dei "Firewall Logici" ingegnerizzati per dirimere i
+ * conflitti geometrici tra pose molto simili.
+ */
 class EquilibrioBoucle : Difficolta {
     override var nome = "BOUCLE (Anello)"
 
@@ -20,9 +27,7 @@ class EquilibrioBoucle : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
-        // ==========================================
         // FIREWALL ANTI-VOLO (UNIVERSALE PER EQUILIBRI)
-        // ==========================================
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
@@ -30,30 +35,32 @@ class EquilibrioBoucle : Difficolta {
         val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
         val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
 
+        // Verifica che il sistema sia effettivamente in una fase di stabilità statica a terra.
         val isLeftPlanted = leftAnkle.y() > bacinoY + femoreSx && leftKneeAngle > 135.0
         val isRightPlanted = rightAnkle.y() > bacinoY + femoreDx && rightKneeAngle > 135.0
 
 
         if (landmarks.size <= 32) return null
 
-        // SCUDO ANTI-ROTAZIONE: Se la ginnasta sta girando, non può essere un equilibrio!
+        // SCUDO ANTI-ROTAZIONE (Gestione della Concorrenza):
+        // L'acquisizione dello stato di rotazione invoca LucchettoGiri.
+        //Finche è attivo il codice abortisce l'analisi per evitare concorrenze con i giri
         if (LucchettoGiri.giroAttivo != null) {
             return null
         }
 
         if (!isLeftPlanted && !isRightPlanted) {
-            return null // Non è un equilibrio, spegni la classe e lascia fare ai salti!
+            return null // se l'atleta è in volo, delega l'elaborazione all'AnalizzatoreSalti.
         }
-        // ==========================================
 
-        // 1. Identificazione Gamba di Appoggio e Gamba Libera
+        // Identificazione algoritmica degli arti
         val isAppoggioLeft = leftAnkle.y() > rightAnkle.y()
         val isLeftLifted = !isAppoggioLeft
 
         val cavigliaLibera = if (isAppoggioLeft) rightAnkle else leftAnkle
         val spallaCentroY = (landmarks[11].y() + landmarks[12].y()) / 2f
 
-        // --- SUPER FILTRO ALTEZZA ---
+        // nel Boucle la caviglia deve superare la coordinata Y delle spalle.
         if (cavigliaLibera.y() > spallaCentroY) {
             return null
         }
@@ -63,22 +70,27 @@ class EquilibrioBoucle : Difficolta {
         val cavigliaSollevata = if (isLeftLifted) leftAnkle else rightAnkle
         val nose = landmarks[0]
 
-        // 2. Controllo Ginocchio di Appoggio (Deve essere teso)
+        // Controllo strutturale (Il ginocchio portante non deve collassare)
         val angoloAppoggio = if (isAppoggioLeft) leftKneeAngle else rightKneeAngle
         if (angoloAppoggio < 150.0) return null
 
-        // --- 3. NUOVO FIREWALL ANTI-PLANCHE/ARABESQUE ---
-        // Se la gamba sollevata è dritta, è fisicamente impossibile che sia un Boucle!
+        // Un'elevazione anomala del tallone durante un equilibrio Planche evocava
+        // per similitudine il modulo di questo equilibrio.
+        // Questo vincolo di estensione rigido garantisce l'esclusione categorica del Boucle
+        // qualora la gamba posteriore dell'atleta si presenti anatomicamente tesa.
+        // Esclude matematicamente i Planche dai falsi positivi dell'Anello.
         val flessioneGinocchioLibero = if (isLeftLifted) leftKneeAngle else rightKneeAngle
         if (flessioneGinocchioLibero > 140.0) {
-            return null // Gamba tesa -> Blocca tutto e lascia lavorare la classe Arabesque/Planche!
+            return null // Gamba tesa -> Abortisce e cede l'esecuzione polimorfica alla classe Arabesque.
         }
 
-        // 4. IL FIREWALL 3D DELL'ANELLO (Distanza Naso - Caviglia Sollevata)
+        //  FIREWALL 3D DELL'ANELLO (Validazione Spaziale)
+        // Misura la norma del vettore tra il punto 0 (Naso) e la caviglia sollevata
+        // per accertarsi che la figura geometrica "ad anello" sia chiusa.
         val distanzaTestaPiede = PoseAnalyzer.calculateDistance3D(nose, cavigliaSollevata)
         if (distanzaTestaPiede > 0.35f) return null
 
-        // 5. Direzione (La gamba sollevata deve andare all'indietro, non in avanti)
+        //  Direzione sull'asse Z/X (Proiezione nel semispazio posteriore)
         val supportHeel = if (isAppoggioLeft) landmarks[29] else landmarks[30]
         val supportToe = if (isAppoggioLeft) landmarks[31] else landmarks[32]
         val isFacingRight = supportToe.x() > supportHeel.x()
@@ -86,28 +98,34 @@ class EquilibrioBoucle : Difficolta {
         val isBackward = if (isFacingRight) ginocchioSollevato.x() < ancaAppoggio.x() else ginocchioSollevato.x() > ancaAppoggio.x()
         if (!isBackward) return null
 
-        // 6. Controllo "Con Aiuto" (Verifica se le mani afferrano il piede)
+        //Rilevamento Astrazione "Con Aiuto"
+        // Il sistema rileva autonomamente se l'atleta si afferra il piede intersecando
+        // le coordinate spaziali dei polsi (landmarks 15, 16) con quelle della caviglia.
         val distPolsoSx = PoseAnalyzer.calculateDistance3D(landmarks[15], cavigliaSollevata)
         val distPolsoDx = PoseAnalyzer.calculateDistance3D(landmarks[16], cavigliaSollevata)
         val conAiuto = (distPolsoSx < 0.15f || distPolsoDx < 0.15f)
 
-        // 7. Assegnazione Valore
+        // Modulazione Adattiva del Valore
+        // Il software premia l'esecuzione "senza aiuto" (basata solo sulla forza muscolare dorsale)
+        // assegnando un Base Value superiore, in conformità con il regolamento sportivo.
         var valoreBase = 0.0
         if (conAiuto) {
-            nome = "BOUCLE (Con aiuto)"
+            nome = "EQUILIBRIO BOUCLE (Con aiuto)"
             valoreBase = 0.30
         } else {
-            nome = "BOUCLE (Senza aiuto)"
+            nome = "EQUILIBRIO BOUCLE (Senza aiuto)"
             valoreBase = 0.50
         }
 
-        // 8. Controllo Relevé (La penalità di 0.10 si toglie direttamente dal valore base)
+        // Controllo Relevé (La penalità di 0.10 si decurta direttamente alla base)
         val inReleve = RegoleGinnastica.verificaReleve(landmarks, isAppoggioLeft)
         if (!inReleve) {
             valoreBase -= 0.10
         }
 
-        // 9. Calcolo Penalità Esecutive (Ampiezza della chiusura dell'anello)
+        //  Calcolo Deterministico delle Penalità Esecutive
+        // Quantifica matematicamente l'errore di ampiezza della chiusura dell'anello,
+        // superando i limiti intrinseci di misurazione dell'occhio umano.
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""

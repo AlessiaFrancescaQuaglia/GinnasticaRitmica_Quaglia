@@ -11,7 +11,7 @@ data class RisultatoDifficolta(
     val messaggioErrore: String = ""
 )
 
-// Il "Contratto": ogni nuovo equilibrio dovrà avere un nome e una funzione valuta()
+// ogni nuovo elemento dovrà avere un nome e una funzione valuta()
 interface Difficolta {
     val nome: String
     fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta?

@@ -10,9 +10,6 @@ object RegoleGinnastica {
         val knee = if (isLeftLeg) landmarks[25] else landmarks[26]
         val ankle = if (isLeftLeg) landmarks[27] else landmarks[28]
         val toe = if (isLeftLeg) landmarks[31] else landmarks[32]
-
-        // MIGLIORAMENTO: Ora usiamo il calcolo 3D, che è molto più preciso
-        // e non si fa ingannare dall'angolazione della telecamera!
         val ankleAngle = PoseAnalyzer.calculateAngle3D(knee, ankle, toe)
 
         // Criteri di giudizio geometrico:

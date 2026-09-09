@@ -7,9 +7,20 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.abs
 import kotlin.math.max
 
+/**
+ * Modulo di inferenza per il "Pivot Grand Écart" (Rotazione in spaccata verticale).
+ * L'atleta esegue un giro su un piede mantenendo un'apertura delle gambe di 180°.
+ * La criticità ingegneristica di questa classe è il filtraggio del rumore: una spaccata in
+ * rotazione è altamente soggetta a deformazione prospettica (effetto "strobo" degli arti).
+ * Il sistema implementa un robusto pattern "Latch" (Aggancio di Stato) e un filtro Early-Exit
+ * per distinguere istantaneamente questa posa da rotazioni affini (come il Giro Penché).
+ */
 class GiroGrandEcart : Difficolta {
     override var nome = "PIVOT GRAND ÉCART"
 
+
+    // MACCHINA A STATI FINITI
+    // memoria temporale necessaria per valutare un gesto dinamico.
     companion object {
         private var mezziGiriCompletati = 0
         private var statoFronteRetro = 0
@@ -18,6 +29,8 @@ class GiroGrandEcart : Difficolta {
         private var isGiroInCorso = false
 
         // Memorie bloccate
+        // Memorizzano le condizioni iniziali (es. l'uso della mano per sorreggere la gamba)
+        // per evitare che vengano perse se le braccia vengono occluse dal corpo durante il giro.
         private var isFormaBloccata = false
         private var haUsatoAiutoLocked = false
     }
@@ -45,33 +58,37 @@ class GiroGrandEcart : Difficolta {
         val liftedAnkle = if (isLeftLowest) rightAnkle else leftAnkle
         val liftedKnee = if (isLeftLowest) rightKnee else leftKnee
 
-        // ==========================================
-        // 0. RESET ISTANTANEO (E FIREWALL PENCHÉ)
-        // ==========================================
+
+        //RESET ISTANTANEO
+        // Prevenzione falsi positivi: se i piedi sono alla stessa altezza (delta Y minimo),
+        // l'atleta è a terra. Si interrompe l'analisi.
         if (abs(liftedAnkle.y() - supportAnkle.y()) < 0.04f) {
             resetGiro()
             return null
         }
 
-        // Se il busto si schiaccia (Penché), scappa subito! Il Grand Écart è dritto.
+        // Firewall Anti-Penché
+        // Nel Grand Écart il busto deve rimanere perfettamente verticale (Spalle sopra il bacino).
+        // Se le spalle crollano in avanti, si tratta di un Giro Penché. Abortisce la classe corrente.
         if (spallaY > bacinoY + 0.05f) {
             resetGiro()
             return null
         }
 
-        // ==========================================
-        // IL DANNATO FILTRO (LUCCHETTO FISSO)
-        // ==========================================
+
+        // Assicura che una sola classe "Giro" sia attiva nel pool di thread di inferenza.
         val idGiroFisso = this.javaClass.simpleName
         if (!LucchettoGiri.possoValutare(idGiroFisso)) return null
 
-        // ==========================================
-        // 1. VERIFICA POSA E LATCH FORMA
-        // ==========================================
+
+        // VERIFICA POSA E  FORMA
+
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
         val liftedKneeAngle = if (isLeftLowest) rightKneeAngle else leftKneeAngle
 
+        // Fusione sensoriale 2D/3D per mitigare l'occlusiuone prospettica della spaccata
+        // durante le fasi di profilo verso la telecamera.
         val dx1 = supportAnkle.x() - bacinoCenterX
         val dy1 = supportAnkle.y() - bacinoY
         val dx2 = liftedAnkle.x() - bacinoCenterX
@@ -84,40 +101,49 @@ class GiroGrandEcart : Difficolta {
 
         val midHipLandmark = NormalizedLandmark.create(bacinoCenterX, bacinoY, (leftHip.z() + rightHip.z()) / 2f)
         val aperturaSpaccata3D = PoseAnalyzer.calculateAngle3D(supportAnkle, midHipLandmark, liftedAnkle)
+
+        // Estrazione del valore massimo tra la misurazione planare e spaziale
         val aperturaSpaccata = max(angoloSpaccata2D, aperturaSpaccata3D)
 
         if (!isFormaBloccata) {
+            // l'algoritmo esige la perfezione biomeccanica per iniziare a contare.
             val isBustoEretto = spallaY < bacinoY - 0.05f
-            val isSpaccataAmpia = aperturaSpaccata >= 150.0
+            val isSpaccataAmpia = aperturaSpaccata >= 150.0 // Margine elastico per i 180°
             val isGinocchioTeso = liftedKneeAngle >= 155.0
-            val isGambaAltissima = liftedAnkle.y() < spallaY + 0.15f
+            val isGambaAltissima = liftedAnkle.y() < spallaY + 0.15f // Il piede deve superare le spalle
 
             if (!(isBustoEretto && isSpaccataAmpia && isGinocchioTeso && isGambaAltissima)) return null
 
+            // Sensore di Prossimità per Astrazione "Con Aiuto" (Mano-Piede)
             val distPolsoSx = PoseAnalyzer.calculateDistance3D(leftWrist, liftedAnkle)
             val distPolsoDx = PoseAnalyzer.calculateDistance3D(rightWrist, liftedAnkle)
             haUsatoAiutoLocked = distPolsoSx < 0.15f || distPolsoDx < 0.15f
 
+            //Congelamento della classificazione iniziale (immunità al rumore )
             isFormaBloccata = true
             LucchettoGiri.blocca(idGiroFisso)
             timestampUltimoFrame = System.currentTimeMillis()
         } else {
+            // Fase di Mantenimento: tolleranze allargate.
+            // A causa della forza centrifuga, la spaccata perde inevitabilmente gradi (fino a 120° ammessi).
             val tolleranzaTempo = if (mezziGiriCompletati >= 2) 1200L else 500L
+
             // Finché mantiene un po' di spaccata, teniamo vivo il giro
             if (aperturaSpaccata > 120.0) {
                 timestampUltimoFrame = System.currentTimeMillis()
             } else if (System.currentTimeMillis() - timestampUltimoFrame > tolleranzaTempo) {
+                // Timeout superato: l'atleta ha chiuso definitivamente le gambe.
                 resetGiro()
                 return null
             }
         }
 
-        // ==========================================
-        // 3. MOTORE A SCAMBIO DI ASSE (X-SWAP) - INFALLIBILE
-        // ==========================================
+
+        //MOTORE A SCAMBIO DI ASSE - Conteggio Rotazione
+        // Un'inversione di polarità (Spalla Dx supera Spalla Sx sul piano 2D) equivale a mezzo giro.
         val dxSpalle = rightShoulder.x() - leftShoulder.x()
 
-        val sogliaSwap = 0.015f
+        val sogliaSwap = 0.015f // Deadzone per prevenire vibrazioni ottiche
         var nuovoStato = statoFronteRetro
 
         if (dxSpalle > sogliaSwap) {
@@ -127,11 +153,13 @@ class GiroGrandEcart : Difficolta {
         }
 
         if (statoFronteRetro == 0 && nuovoStato != 0) {
+            // Inizializzazione Tracking Spaziale
             statoFronteRetro = nuovoStato
             isGiroInCorso = true
             timestampUltimoSwap = System.currentTimeMillis()
         } else if (statoFronteRetro != 0 && nuovoStato != statoFronteRetro) {
             val tempoDalUltimoSwap = System.currentTimeMillis() - timestampUltimoSwap
+            // Filtro passa-basso contro letture multiple istantanee
             if (tempoDalUltimoSwap > 200L) {
                 mezziGiriCompletati++
                 statoFronteRetro = nuovoStato
@@ -143,9 +171,9 @@ class GiroGrandEcart : Difficolta {
 
         if (giriCompletati == 0 && mezziGiriCompletati == 0) return null
 
-        // ==========================================
-        // 4. RESTITUZIONE PUNTEGGIO
-        // ==========================================
+
+        // RESTITUZIONE PUNTEGGIO
+        // valore differenziato in base alle posizioni (tenuta della gamba con mano o meno).
         val valoreBaseDifficolta = if (haUsatoAiutoLocked) 0.30 else 0.50
         val valoreTotale = if (giriCompletati >= 1) valoreBaseDifficolta + ((giriCompletati - 1) * 0.10) else 0.0
 
@@ -160,6 +188,9 @@ class GiroGrandEcart : Difficolta {
         return RisultatoDifficolta(true, valoreTotale, 0.0, true, "")
     }
 
+    /**
+     * Svuota la memoria a stati e rilascia i lock per abilitare valutazioni future.
+     */
     private fun resetGiro() {
         mezziGiriCompletati = 0
         statoFronteRetro = 0

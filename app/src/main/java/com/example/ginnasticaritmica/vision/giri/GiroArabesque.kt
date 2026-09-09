@@ -6,16 +6,32 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.max
 
+/** Modulo dedicato al riconoscimento del giro Arabesque
+ * A differenza degli equilibri, l'analisi di un giro richiede il monitoraggio
+ * continuo del tensore 3D nel dominio del tempo.
+ * L'architettura è basata su una Macchina a Stati Finiti (FSM) accoppiata a un
+ * motore di Isteresi per il conteggio dei giri.
+ */
 class GiroArabesque : Difficolta {
     override var nome = "GIRO ARABESQUE"
 
+    // MEMORIA PERSISTENTE
+    // Il blocco companion funge da memoria statica che sopravvive tra i frame.
+    // Registra lo storico del movimento rotazionale a 30 FPS.
     companion object {
         private var mezziGiriCompletati = 0
         private var statoFronteRetro = 0
+
+        // Watchdog Timers: meccanismi di tolleranza ai guasti.
+        // Se il tracker perde temporaneamente un arto a causa del motion blur,
+        // questi timer impediscono che l'intero giro venga invalidato istantaneamente.
         private var timestampUltimoFrameBusto = 0L
         private var timestampUltimoSwap = 0L
         private var isGiroInCorso = false
 
+        // Blocco di Stato:
+        // Registra le caratteristiche biomeccaniche del giro (es. busto flesso)
+        // nell'istante del decollo, congelandole in memoria per l'intera durata della rotazione.
         private var isFormaBloccata = false
         private var isAttitudeLocked = false
         private var isBustoOrizzontaleLocked = false
@@ -29,6 +45,9 @@ class GiroArabesque : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // GESTIONE DELLA CONCORRENZA
+        // Interroga il "LucchettoGiri". Se un'altra classe
+        // sta già tracciando una rotazione, questo thread abortisce per evitare conflitti.
         val idGiroFisso = this.javaClass.simpleName
         if (!LucchettoGiri.possoValutare(idGiroFisso)) return null
 
@@ -60,47 +79,56 @@ class GiroArabesque : Difficolta {
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
         val liftedKneeAngle = if (isLeftLowest) rightKneeAngle else leftKneeAngle
 
+        // Variabile di stato primaria per l'algoritmo di Swap
         val dxSpalle = rightShoulder.x() - leftShoulder.x()
         val sogliaSwap = max(0.005f, scalaCorpo * 0.04f)
         val statoAttualeSpalle = if (dxSpalle > sogliaSwap) 1 else if (dxSpalle < -sogliaSwap) -1 else 0
 
-        // ==========================================
-        // 1. VERIFICA POSA
-        // ==========================================
+
+        // vERIFICA POSA
+
         if (!isFormaBloccata) {
 
             if (supportAnkle.y() < bacinoY + (scalaCorpo * 0.2f)) return null
 
-            // --- SCUDO ANTI-DÉGAGÉ (Body Plane Check) ---
-            // Vettore Spina Dorsale (dal bacino alle spalle, asse Y locale)
+            //SCUDO ANTI-DÉGAGÉ
+            //Poiché l'atleta ruota, i classici controlli sull'asse X non funzionano
+            // (quando è di spalle, destra e sinistra si invertono).
+            // L'algoritmo calcola il piano frontale del torace mediante un Prodotto Vettoriale
+
+            // Vettore Spina Dorsale (dal bacino alle spalle)
             val spineX = spallaCenterX - bacinoCenterX
             val spineY = spallaY - bacinoY
             val spineZ = spallaCenterZ - bacinoCenterZ
 
-            // Vettore Fianchi (dal fianco sinistro al destro, asse X locale)
+            // Vettore Trasversale Fianchi
             val hipX = rightHip.x() - leftHip.x()
             val hipY = rightHip.y() - leftHip.y()
             val hipZ = rightHip.z() - leftHip.z()
 
-            // Prodotto Vettoriale (Spine x Hip) = Normale che punta "avanti" rispetto al torace
+            // Prodotto Vettoriale (Spine x Hip) = Vettore Normale Ortogonale.
+            // Questo vettore punta in avanti rispetto al petto dell'atleta,
+            // indipendentemente dall'orientamento della telecamera.
             val forwardX = spineY * hipZ - spineZ * hipY
             val forwardY = spineZ * hipX - spineX * hipZ
             val forwardZ = spineX * hipY - spineY * hipX
 
-            // Vettore della gamba sollevata (dal bacino al ginocchio)
+            //Vettore della gamba sollevata (dal bacino al ginocchio)
             val legX = liftedKnee.x() - bacinoCenterX
             val legY = liftedKnee.y() - bacinoY
             val legZ = liftedKnee.z() - bacinoCenterZ
 
-            // Prodotto scalare per verificare da che lato del petto si trova la gamba
+            // Prodotto Scalare
+            // Interseca il vettore Normale con il vettore della Gamba.
+            // Se il risultato è positivo, la gamba si trova nel semispazio anteriore (Dégagé).
+            // Se è negativo, si trova nel semispazio posteriore (Arabesque/Attitude).
             val dotFrontBack = forwardX * legX + forwardY * legY + forwardZ * legZ
 
-            // Se la gamba è nel semispazio anteriore (Dégagé), interrompe l'Arabesque
             if (dotFrontBack > -0.01f) {
-                return null
+                return null // Rigetta l'ipotesi Arabesque
             }
 
-            // --- CONTROLLI ARABESQUE STANDARD ---
+            // CONTROLLI ARABESQUE STANDARD
             val isKneeAlto = liftedKnee.y() < bacinoY + (scalaCorpo * 0.5f)
             if (!isKneeAlto) return null
 
@@ -124,6 +152,8 @@ class GiroArabesque : Difficolta {
             val isBustoInclinato = spallaY > bacinoY - (scalaCorpo * 0.45f)
             val isSpaccataPenche = aperturaSpaccata >= 115.0
             val isBoucle = (liftedKneeAngle < 145.0) && (distNasoCaviglia < (scalaCorpo * 1.5f))
+
+            // Firewall contro collisioni con altre classi di rotazione
             if (isBustoInclinato && (isSpaccataPenche || isBoucle)) return null
             if (spallaY > bacinoY + (scalaCorpo * 0.05f)) return null
 
@@ -132,7 +162,10 @@ class GiroArabesque : Difficolta {
             if (isGambaFlessa && isPiedeMoltoAlto) return null
             if (liftedKneeAngle < 110.0 && distPiedeGinocchio < (scalaCorpo * 0.9f)) return null
 
-            // LATCH!
+
+            // L'AI certifica l'inizio del giro e congela le caratteristiche anatomiche base.
+            // Durante i giri (a causa della forza centrifuga) la posa subisce modifiche.
+            // Questo blocco fissa il punteggio base per non essere penalizzato dalle occlusioni visive.
             isAttitudeLocked = liftedKneeAngle < 145.0
             isBustoOrizzontaleLocked = spallaY > bacinoY - (scalaCorpo * 0.3f)
 
@@ -145,20 +178,26 @@ class GiroArabesque : Difficolta {
             gambaDiSupportoIsLeft = isLeftLowest
             isFormaBloccata = true
 
+            // Inizializzazione della rotazione
             dxSpalleIniziale = dxSpalle
             statoFronteRetro = statoAttualeSpalle
             timestampUltimoFrameBusto = System.currentTimeMillis()
             timestampUltimoSwap = System.currentTimeMillis()
         } else {
-            // ==========================================
-            // 2. ROTAZIONE
-            // ==========================================
+
+            // MANTENIMENTO ROTAZIONE
+            // Valuta se l'atleta sta effettivamente acquisendo inerzia
+            // (delta sulle spalle > 15% del corpo) per attivare i sistemi di conteggio.
             if (!isGiroInCorso) {
                 if (kotlin.math.abs(dxSpalle - dxSpalleIniziale) > scalaCorpo * 0.15f) {
                     isGiroInCorso = true
                 }
             }
 
+            // Watchdog Timer Gamba:
+            // L'atleta può perdere fisiologicamente quota con la gamba durante il giro.
+            // Il sistema implementa un timer elastico (800ms) prima di dichiarare terminato
+            // l'elemento, assorbendo eventuali micro-cedimenti
             val ginocchioSupportoY = if (isLeftLowest) leftKnee.y() else rightKnee.y()
             if (liftedAnkle.y() > ginocchioSupportoY) {
                 if (timestampGambaGiu == 0L) {
@@ -168,9 +207,12 @@ class GiroArabesque : Difficolta {
                     return null
                 }
             } else {
-                timestampGambaGiu = 0L
+                timestampGambaGiu = 0L // Reset contatore se la gamba viene rialzata
             }
 
+            // Watchdog Generale Inattività:
+            // Se la rotazione si blocca il sistema sblocca forzatamente
+            // il Mutex dopo 1.5 - 2 secondi di staticità.
             val isKneeAncoraSu = liftedKnee.y() < bacinoY + (scalaCorpo * 0.8f)
             if (isKneeAncoraSu) {
                 timestampUltimoFrameBusto = System.currentTimeMillis()
@@ -182,15 +224,17 @@ class GiroArabesque : Difficolta {
                 }
             }
 
+            // Safety timeout assoluto (2000ms dall'ultimo giro registrato)
             if (isGiroInCorso && System.currentTimeMillis() - timestampUltimoSwap > 2000L) {
                 resetGiro()
                 return null
             }
         }
 
-        // ==========================================
-        // 3. MOTORE HYSTERESIS X-SWAP
-        // ==========================================
+
+        // MOTORE HYSTERESIS (Conteggio Pivot)
+        // Ogni volta che la spalla destra e sinistra invertono la loro posizione a video,
+        // l'algoritmo registra un 1/2 giro.
         if (isFormaBloccata) {
             if (statoFronteRetro == 0 && statoAttualeSpalle != 0) {
                 statoFronteRetro = statoAttualeSpalle
@@ -199,6 +243,9 @@ class GiroArabesque : Difficolta {
             } else if (statoFronteRetro != 0 && statoAttualeSpalle != 0 && statoAttualeSpalle != statoFronteRetro) {
                 val tempoDalUltimoSwap = System.currentTimeMillis() - timestampUltimoSwap
 
+
+                // Inserisce un periodo refrattario di 150ms per annullare il rumore biomeccanico
+                // e le rapide fluttuazioni ottiche che genererebbero conteggi "falsi" istantanei.
                 if (tempoDalUltimoSwap > 150L) {
                     mezziGiriCompletati++
                     statoFronteRetro = statoAttualeSpalle
@@ -211,10 +258,14 @@ class GiroArabesque : Difficolta {
         }
 
         if (!isGiroInCorso) return null
+
+        // Acquisisce permanentemente il blocco per l'intera durata del giro
         LucchettoGiri.blocca(idGiroFisso)
 
+        // Trasforma le transizioni registrate in rotazioni complete (360°)
         val giriCompleti = mezziGiriCompletati / 2
 
+        // Calcolo progressivo del Base Value: aumenta dinamicamente ad ogni rotazione successiva alla prima
         val valoreBaseDifficolta = if (isBustoOrizzontaleLocked && isBustoIndietroLocked) {
             0.50
         } else if (isBustoOrizzontaleLocked && !isBustoIndietroLocked) {
@@ -225,6 +276,7 @@ class GiroArabesque : Difficolta {
 
         val valoreTotale = if (mezziGiriCompletati >= 2) valoreBaseDifficolta + ((giriCompleti - 1) * 0.10) else 0.0
 
+        // Assegnazione stringa in base al congelamento dei dati catturati in fase di Bootstrapping
         val nomeBase = if (isAttitudeLocked) {
             if (isBustoOrizzontaleLocked && isBustoIndietroLocked) "BOUCLE S. AIUTO" else "ATTITUDE"
         } else {
@@ -234,6 +286,7 @@ class GiroArabesque : Difficolta {
         val etichettaBusto = if (isBustoOrizzontaleLocked && !isBustoIndietroLocked) "(Busto Av./Lat.)" else ""
         val etichettaFinale = "GIRO $nomeBase $etichettaBusto"
 
+        // UI Update in Real-Time
         nome = if (giriCompleti >= 1) {
             "$etichettaFinale ($giriCompleti Giri)"
         } else {
@@ -243,6 +296,11 @@ class GiroArabesque : Difficolta {
         return RisultatoDifficolta(true, valoreTotale, 0.0, true, "")
     }
 
+    /**
+     * Garbage Collector & State Reset
+     * Viene invocato automaticamente dai Watchdog quando l'atleta termina l'elemento,
+     * rilasciando il Mutex e permettendo all'applicazione di valutare nuove figure.
+     */
     private fun resetGiro() {
         mezziGiriCompletati = 0
         statoFronteRetro = 0

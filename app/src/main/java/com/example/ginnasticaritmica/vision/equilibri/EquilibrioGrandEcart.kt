@@ -7,15 +7,21 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.abs
 import kotlin.math.atan2
-import com.example.ginnasticaritmica.vision.giri.LucchettoGiri // Assicurati di importarlo in alto!
+import com.example.ginnasticaritmica.vision.giri.LucchettoGiri
 
+/**
+ * Analizzatore per l'Equilibrio "Grand Écart" (Spaccata a 180°).
+ * il grand ecart è una forma geometrica comune a molte famiglie di movimenti (Salti, Pivot, altri equilibri).
+ * L'algoritmo deve applicare molteplici "Firewall logici" per accertarsi che sia
+ * un equilibrio statico e non un'altra figura in transito.
+ */
 class EquilibrioGrandEcart : Difficolta {
     override var nome = "GRAND ÉCART AVANTI"
 
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        // Mappatura di tutti i landmark necessari
+        // Estrazione dei tensori spaziali essenziali
         val nose = landmarks[0]
         val leftShoulder = landmarks[11]
         val rightShoulder = landmarks[12]
@@ -26,9 +32,11 @@ class EquilibrioGrandEcart : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
-        // ==========================================
-        // FIREWALL 1: ANTI-VOLO INTELLIGENTE
-        // ==========================================
+
+        // FIREWALL ANTI-VOLO  (Altitudine Relativa)
+        // Discrimina un equilibrio da un "Salto in Spaccata" (Grand Jeté).
+        // Calcola l'altezza del tronco come unità di misura dinamica per valutare
+        // la quota Y della caviglia di appoggio rispetto al bacino.
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
         val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
         val altezzaTronco = kotlin.math.abs(bacinoY - spallaY)
@@ -40,32 +48,30 @@ class EquilibrioGrandEcart : Difficolta {
         val lowestAnkleY = if (isLeftLowest) leftAnkle.y() else rightAnkle.y()
         val lowestKneeAngle = if (isLeftLowest) leftKneeAngle else rightKneeAngle
 
-
-        if (landmarks.size <= 32) return null
-
-        // SCUDO ANTI-ROTAZIONE: Se la ginnasta sta girando, non può essere un equilibrio!
+        // Gestione Concorrenza : inibisce l'analisi se il thread dei Pivot è bloccato.
         if (LucchettoGiri.giroAttivo != null) {
             return null
         }
 
-
-        // Se la caviglia scende, MA il ginocchio è piegato (come in un salto cosacco),
-        // è fisicamente impossibile che stia sorreggendo un Grand Ecart. È in volo!
+        // Se la caviglia scende, MA il ginocchio di supporto è piegato (< 135°),
+        // non può sostenere il peso di una spaccata eretta.
+        // Si deduce che l'atleta sia in volo (es. Salto Cosacco) e si scarta il frame.
         if (lowestKneeAngle < 135.0) {
             return null
         }
 
-        // Se il piede più basso è troppo in alto rispetto al bacino, è in salto
+        // Vincolo gravitazionale: se il punto più basso (piede) non dista dal bacino
+        // almeno il 70% della lunghezza del tronco, l'atleta non sta toccando terra.
         if (lowestAnkleY < bacinoY + (altezzaTronco * 0.7f)) {
             return null
         }
-        // ==========================================
 
-        // ==========================================
-        // FIREWALL 2: ANTI-COSACCO (Requisito Spaccata)
-        // ==========================================
-        // Un "Grand Écart" richiede che ENTRAMBE le gambe siano tese.
-        // Se una è tesa e l'altra è rannicchiata, spegniamo l'equilibrio!
+
+
+        // FIREWALL ANTI-COSACCO
+        // Un "Grand Écart" impone un vincolo  rigido: ENTRAMBE le gambe tese.
+        // Se la rete neurale rileva asimmetria (una tesa, l'altra flessa sotto i 120°),
+        // si passa il controllo alla classe EquilibrioCosacco.
         val isLeftStraight = leftKneeAngle > 135.0
         val isRightStraight = rightKneeAngle > 135.0
         val isLeftTucked = leftKneeAngle < 120.0
@@ -74,29 +80,37 @@ class EquilibrioGrandEcart : Difficolta {
         if ((isLeftStraight && isRightTucked) || (isRightStraight && isLeftTucked)) {
             return null
         }
-        // ==========================================
 
-        // 1. Identificazione Gamba di Appoggio
+
+        //  Identificazione Algoritmica degli Arti
         val supportAnkle = if (isLeftLowest) leftAnkle else rightAnkle
         val liftedAnkle = if (isLeftLowest) rightAnkle else leftAnkle
         val supportHip = if (isLeftLowest) leftHip else rightHip
         val liftedKnee = if (isLeftLowest) rightKnee else leftKnee
 
-        // 2. DIREZIONE INFALLIBILE (Tallone vs Punta: immune al relevé)
+        // Vettore Pianta del Piede
+        // Usa il delta tra tallone e punta (anziché i fianchi) per determinare
+        // l'orientamento (Destra/Sinistra), rendendo il calcolo immune alle distorsioni ottiche
+        // e all'innalzamento in relevé.
         val supportHeel = if (isLeftLowest) landmarks[29] else landmarks[30]
         val supportToe = if (isLeftLowest) landmarks[31] else landmarks[32]
         val isFacingRight = supportToe.x() > supportHeel.x()
 
-        // 3. CONTROLLO DIREZIONE GAMBA (Il ginocchio DEVE andare avanti)
+        // CONTROLLO DIREZIONE GAMBA (Semispazio Frontale)
+        // Assicura che la gamba libera sia proiettata in avanti rispetto all'asse Y del bacino.
         val isForwardExtended = if (isFacingRight) liftedKnee.x() > supportHip.x() else liftedKnee.x() < supportHip.x()
         if (!isForwardExtended) return null
 
-        // 4. FIREWALL ANTI-PENCHÉ (Distanza 3D Naso-Caviglia)
-        // Se la caviglia è vicinissima al naso (< 30cm in 3D), è un Penché/Anello! Scartiamo.
+        //  FIREWALL ANTI-PENCHÉ
+        // Se l'atleta esegue un Penché (spaccata dorsale in asse con busto in avanti),
+        // l'angolo inter-femorale è 180° proprio come qui. Il discriminante geometrico è la distanza
+        // Norma 3D tra il Naso e la Caviglia. Se sono vicini (< 30cm), la figura è dorsale.
         val distNasoCaviglia = PoseAnalyzer.calculateDistance3D(nose, liftedAnkle)
         if (distNasoCaviglia < 0.30f) return null
 
-        // 5. Calcolo Inclinazione Busto (Solo flessione indietro)
+        // 5. Calcolo Inclinazione Busto
+        // Misura l'angolo di flessione retrostante tramite Arcotangente
+        // applicata ai centri di massa di spalle e bacino
         val midHipX = (leftHip.x() + rightHip.x()) / 2f
         val shoulderCenterX = (leftShoulder.x() + rightShoulder.x()) / 2f
 
@@ -109,20 +123,22 @@ class EquilibrioGrandEcart : Difficolta {
             gradiBustoIndietro = abs(Math.toDegrees(atan2(dx.toDouble(), dy.toDouble())))
         }
 
-        // 6. Apertura Spaccata Vettoriale in 3D (Calcolo perfetto anche di sbieco)
-        val midHipLandmark = NormalizedLandmark.create(midHipX,
-            bacinoY, (leftHip.z() + rightHip.z()) / 2f)
+        // Apertura Spaccata Vettoriale in 3D (Calcolo Prospettico)
+        // Sfrutta il Prodotto Scalare 3D per calcolare i gradi reali dell'apertura coxo-femorale
+        // (angolo Caviglia - Centro Bacino - Caviglia), neutralizzando la distorsione ottica .
+        val midHipLandmark = NormalizedLandmark.create(midHipX, bacinoY, (leftHip.z() + rightHip.z()) / 2f)
         val aperturaSpaccata = PoseAnalyzer.calculateAngle3D(supportAnkle, midHipLandmark, liftedAnkle)
         if (aperturaSpaccata < 130.0) return null
 
-        // 7. Controllo Relevé e Aiuto (Mani-Piede in 3D)
+        //  Controllo Relevé e Rilevamento Astrazione "Con Aiuto"
+        // Determina autonomamente la presa verificando l'intersezione dei volumi 3D tra polsi e caviglia.
         val inReleve = RegoleGinnastica.verificaReleve(landmarks, isLeftLowest)
 
         val distPolsoSx = PoseAnalyzer.calculateDistance3D(landmarks[15], liftedAnkle)
         val distPolsoDx = PoseAnalyzer.calculateDistance3D(landmarks[16], liftedAnkle)
         val conAiuto = (distPolsoSx < 0.12f || distPolsoDx < 0.12f)
 
-        // 8. Assegnazione Dinamica (Codice dei Punteggi)
+        //  Assegnazione Dinamica del Valore Tecnico
         var valoreBase = 0.0
 
         if (gradiBustoIndietro > 110.0) {
@@ -142,10 +158,11 @@ class EquilibrioGrandEcart : Difficolta {
         }
 
         if (!inReleve) {
-            valoreBase -= 0.10 // Penalità fissa per esecuzione in pianta
+            valoreBase -= 0.10 // Penalità decurtata a priori per mancato relevé propulsivo
         }
 
-        // 9. Calcolo Penalità Esecutive sull'ampiezza (con salvaguardia Oversplit)
+        // Calcolo Deterministico delle Penalità sull'Ampiezza
+        // Il sistema gestisce l'Oversplit (spaccate oltre i 180° che non comportano penalità)
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""

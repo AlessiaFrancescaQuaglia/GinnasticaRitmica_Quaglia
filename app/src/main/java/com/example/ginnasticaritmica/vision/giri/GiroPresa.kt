@@ -6,16 +6,27 @@ import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.max
 
+/**
+ * Modulo dedicato all'inferenza del "Giro Presa" (Pivot boucle con aiuto delle mani).
+ * La ginnasta esegue una rotazione sostenendo attivamente la gamba sollevata.
+ * Il sistema deve dimostrare l'avvenuto contatto fisico tra le mani (polsi) e l'arto inferiore
+ * (caviglia/ginocchio) prima di autorizzare la valutazione della figura.
+ */
 class GiroPresa : Difficolta {
     override var nome = "GIRO PRESA CON AIUTO"
 
+
+    // MEMORIA DI STATO DELLA MACCHINA ROTAZIONALE
     companion object {
+        // Registri per il tracciamento angolare
         private var mezziGiriCompletati = 0
         private var statoFronteRetro = 0
         private var timestampUltimoFrame = 0L
         private var timestampUltimoSwap = 0L
         private var isGiroInCorso = false
 
+        // Latch di Validazione: bloccano la classificazione sub-strutturale (es. Boucle)
+        // isolandola dalle deformazioni durante il giro.
         private var isFormaBloccata = false
         private var isBoucleLocked = false
 
@@ -26,6 +37,7 @@ class GiroPresa : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // Gestione Concorrenza (Mutex): previene confusione con altre classi di rotazione.
         val idGiroFisso = this.javaClass.simpleName
         if (!LucchettoGiri.possoValutare(idGiroFisso)) return null
 
@@ -48,21 +60,23 @@ class GiroPresa : Difficolta {
         val liftedAnkle = if (isLeftLowest) rightAnkle else leftAnkle
         val liftedKnee = if (isLeftLowest) rightKnee else leftKnee
 
-        // ==========================================
-        // 0. FIREWALL BASE & RESET DINAMICO
-        // ==========================================
-        // LA CORREZIONE SOGLIA
+
+        // FIREWALL BASE e RESET DINAMICO
+        // Utilizza il tronco come unità di misura dinamica per validare l'ancoraggio a terra.
         val scalaCorpoX = PoseAnalyzer.calculateDistance3D(leftShoulder, leftHip)
         if (supportAnkle.y() < bacinoY + (scalaCorpoX * 0.2f)) {
             resetGiro()
             return null
         }
 
+        // Scudo Posturale: Un giro "Presa" (Dietro) impone un busto eretto o inarcato.
+        // Se le spalle crollano in avanti, l'algoritmo invalida immediatamente il frame.
         if (spallaY > bacinoY - 0.15f) {
             resetGiro()
             return null
         }
 
+        // Watchdog Timer per la perdita di quota della gamba.
         val ginocchioSupportoY = if (isLeftLowest) leftKnee.y() else rightKnee.y()
 
         if (liftedAnkle.y() > ginocchioSupportoY) {
@@ -71,29 +85,34 @@ class GiroPresa : Difficolta {
                 return null
             } else {
                 if (timestampGambaGiu == 0L) {
-                    timestampGambaGiu = System.currentTimeMillis()
+                    timestampGambaGiu = System.currentTimeMillis() // Innesco
                 } else if (System.currentTimeMillis() - timestampGambaGiu > 800L) {
+                    // Tolleranza superata: perdita di equilibrio confermata
                     resetGiro()
                     return null
                 }
             }
         } else {
-            timestampGambaGiu = 0L
+            timestampGambaGiu = 0L // Riarmo
         }
 
-        // ==========================================
-        // 1. VERIFICA PRESENZA AIUTO E FORMA
-        // ==========================================
+
+        // VERIFICA PRESENZA AIUTO E FORMA
+
         val leftKneeAngle = PoseAnalyzer.calculateAngle3D(leftHip, leftKnee, leftAnkle)
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
         val liftedKneeAngle = if (isLeftLowest) rightKneeAngle else leftKneeAngle
 
         if (!isFormaBloccata) {
+            // Sensore di Intersezione 3D (Collision Detection)
+            // L'algoritmo calcola la Distanza Euclidea tra le mani (polsi) e i fulcri
+            // articolari della gamba sollevata (caviglia e ginocchio).
             val distPolsoCavigliaSx = PoseAnalyzer.calculateDistance3D(leftWrist, liftedAnkle)
             val distPolsoCavigliaDx = PoseAnalyzer.calculateDistance3D(rightWrist, liftedAnkle)
             val distPolsoGinocchioSx = PoseAnalyzer.calculateDistance3D(leftWrist, liftedKnee)
             val distPolsoGinocchioDx = PoseAnalyzer.calculateDistance3D(rightWrist, liftedKnee)
 
+            // Condizione di attivazione (OR logico): almeno una mano deve essere in prossimità della gamba.
             val haPresa = (distPolsoCavigliaSx < 0.20f || distPolsoCavigliaDx < 0.20f ||
                     distPolsoGinocchioSx < 0.20f || distPolsoGinocchioDx < 0.20f)
 
@@ -104,6 +123,8 @@ class GiroPresa : Difficolta {
 
             if (!(isGambaAlta && isBustoErettoOInarcato)) return null
 
+            // Determina se la presa genera un "Boucle" (gamba piegata)
+            // o un "Grand Écart" (gamba tesa), e congela il verdetto nel Latch.
             isBoucleLocked = liftedKneeAngle < 140.0
 
             gambaDiSupportoIsLeft = isLeftLowest
@@ -111,6 +132,7 @@ class GiroPresa : Difficolta {
             LucchettoGiri.blocca(idGiroFisso)
             timestampUltimoFrame = System.currentTimeMillis()
         } else {
+            // Mantenimento
             val tolleranzaTempo = if (mezziGiriCompletati >= 2) 1000L else 500L
             if (liftedAnkle.y() < bacinoY + 0.15f || liftedKnee.y() < bacinoY + 0.15f) {
                 timestampUltimoFrame = System.currentTimeMillis()
@@ -119,15 +141,16 @@ class GiroPresa : Difficolta {
                 return null
             }
 
+            // Sgancio di sicurezza
             if (isGiroInCorso && System.currentTimeMillis() - timestampUltimoSwap > 1500L) {
                 resetGiro()
                 return null
             }
         }
 
-        // ==========================================
-        // 3. MOTORE ADATTIVO X-SWAP CON RICARICA
-        // ==========================================
+
+        //MOTORE  X-SWAP
+        // Rilevamento dello Zero-Crossing per il conteggio angolare.
         val dxSpalle = rightShoulder.x() - leftShoulder.x()
         val sogliaSwap = max(0.015f, scalaCorpoX * 0.08f)
 
@@ -140,6 +163,9 @@ class GiroPresa : Difficolta {
         } else if (statoFronteRetro != 0 && nuovoStato != 0 && nuovoStato != statoFronteRetro) {
             val tempoDalUltimoSwap = System.currentTimeMillis() - timestampUltimoSwap
 
+            // Debouncing: calibrato al ribasso rispetto ad altri giri (150ms)
+            // poiché la "Presa" compatta la massa corporea dell'atleta vicino all'asse di rotazione,
+            // aumentandola velocità angolare (conservazione del momento angolare).
             if (tempoDalUltimoSwap > 80L) {
                 mezziGiriCompletati++
                 statoFronteRetro = nuovoStato
@@ -152,9 +178,12 @@ class GiroPresa : Difficolta {
 
         if (giriCompletati == 0 && mezziGiriCompletati == 0) return null
 
+
+        // RESTITUZIONE PUNTEGGIO
         val valoreBaseDifficolta = 0.30
         val valoreTotale = if (giriCompletati >= 1) valoreBaseDifficolta + ((giriCompletati - 1) * 0.10) else 0.0
 
+        // Ricostruzione dinamica dell'identità della figura in base ai Latch acquisiti
         val nomeForma = if (isBoucleLocked) "BOUCLE CON AIUTO" else "GRAND ÉCART INDIETRO C. AIUTO"
         val etichettaFinale = "GIRO $nomeForma (0.30)"
 
@@ -167,6 +196,9 @@ class GiroPresa : Difficolta {
         return RisultatoDifficolta(true, valoreTotale, 0.0, true, "")
     }
 
+    /**
+     * Resetta la Macchina a Stati e libera il Mutex rotazionale.
+     */
     private fun resetGiro() {
         mezziGiriCompletati = 0
         statoFronteRetro = 0

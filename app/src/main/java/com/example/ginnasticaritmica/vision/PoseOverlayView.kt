@@ -12,41 +12,53 @@ import kotlin.math.max
 import androidx.core.graphics.toColorInt
 
 /**
- * CustomView responsabile del rendering grafico in sovrimpressione sul video.
- * Oltre a disegnare, gestisce la "Persistenza Visiva" dell'output: agisce come un buffer
- * che stabilizza i risultati prodotti dagli analizzatori AI, evitando che le scritte
- * lampeggino in modo illeggibile a ogni singolo frame processato.
+ * Modulo HUD - Heads-Up Display.
+ * Questa CustomView rappresenta il terminale di output del sistema di Computer Vision.
+ * Oltre a occuparsi del rendering grafico (disegno dei tensori scheletrici sul video),
+ * implementa un fondamentale strato di Debouncing e Persistenza Visiva.
+ * Questa classe agisce come un buffer (Filtro Passa-Basso) che stabilizza
+ * i risultati a video, evitando che l'interfaccia utente risulti illeggibile.
  */
 class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, attrs) {
 
+
+    // BUFFER DEI DATI DI INFERENZA
     private var results: PoseLandmarkerResult? = null
     private var imageWidth: Int = 1
     private var imageHeight: Int = 1
 
-    // LOGICA DI STABILIZZAZIONE ANTI-RUMORE
-    // Una difficoltà viene considerata "candidata" solo se l'AI la riconosce per più frame consecutivi.
+
+    // LOGICA DI STABILIZZAZIONE E TOLLERANZA AI GUASTI
+    // Macchina a stati per il filtro anti-rumore. Una classificazione prodotta dall'AI
+    // viene considerata "Candidata" e promossa a schermo solo se dimostra una certa
+    // coerenza temporale (es. mantenuta per X frame consecutivi).
     private var candidateResult: Pair<String, RisultatoDifficolta>? = null
     private var frameCounter: Int = 0
     private var missedFrames: Int = 0
+    // Tolleranza per le occlusioni momentanee: se l'AI perde la posa per 1 o 2 frame,
+    // il sistema non resetta immediatamente il conteggio, assorbendo il micro-guasto.
     private val MAX_TOLERANCE_FRAMES = 2
 
 
-    // Una volta che un elemento è confermato, la View ne "congela" il risultato sullo schermo
-    // per 2.5 secondi. Questo permette di leggere comodamente il verdetto
-    // anche se l'azione dell'atleta in video è durata solo una frazione di secondo (come nei Salti).
+    // LATCH DI PERSISTENZA VISIVA
+    // Una volta che un elemento è confermato, la View ne "congela" l'identità e il punteggio a
+    // schermo per 2.5 secondi. Questo soddisfa un requisito UX: permette al giudice/utente di
+    // leggere il verdetto anche se l'azione biomeccanica dell'atleta è durata solo pochi millisecondi.
     private var persistedResult: Pair<String, RisultatoDifficolta>? = null
     private var persistedLandmarks: List<NormalizedLandmark>? = null
     private var lastDetectionTime: Long = 0L
-    private val PERSISTENCE_DURATION = 2500L // 2.5 secondi
+    private val PERSISTENCE_DURATION = 2500L // Timeout di persistenza (2.5 secondi)
 
-    // Pennello grafico per i 33 nodi scheletrici
+
+    // PIPELINE GRAFICA
+    // Pennello grafico per la mappatura dei 33 nodi scheletrici della topologia MediaPipe.
     private val pointPaint = Paint().apply {
         color = Color.GREEN
         style = Paint.Style.FILL
         strokeWidth = 20f
     }
 
-    // Pennello grafico per i messaggi secondari (Penalità / Avvisi)
+    // Pennello grafico per i messaggi secondari (Telemetria, Penalità, Avvisi di Errore)
     private val textPaint = Paint().apply {
         color = Color.YELLOW
         textSize = 55f
@@ -54,7 +66,7 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         setShadowLayer(5f, 0f, 0f, Color.BLACK)
     }
 
-    // Pennello grafico per il verdetto principale
+    // Pennello grafico per il verdetto principale (Nome Elemento e Punteggio)
     private val resultPaint = Paint().apply {
         textSize = 65f
         isFakeBoldText = true
@@ -62,8 +74,8 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
     }
 
     /**
-     * Metodo esposto al Fragment (AnalisiPosaFragment) per iniettare i dati grezzi
-     * ricevuti dal modello MediaPipe. La chiamata a invalidate() forza il ricalcolo del Canvas.
+     * Metodo esposto al Fragment (Controller) per iniettare i dati grezzi calcolati dalla rete neurale.
+     * La chiamata a `invalidate()` invia un segnale al sistema operativo Android per richiedere un refresh hardware del Canvas.
      */
     fun setResults(poseLandmarkerResults: PoseLandmarkerResult, width: Int, height: Int) {
         this.results = poseLandmarkerResults
@@ -75,9 +87,12 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        // Calcolo del ridimensionamento dinamico (Scale & Offset)
-        // Siccome la fotocamera (es. 480x640) ha proporzioni diverse dallo schermo fisico del tablet,
-        // è necessario calcolare un fattore di scala per mappare i vettori AI sulle coordinate fisiche dello schermo.
+
+        // TRASFORMAZIONE AFFINE DELLE COORDINATE (Scale & Offset)
+        // Le matrici CMOS delle fotocamere (es. 640x480) raramente corrispondono all'aspect ratio
+        // del display fisico del dispositivo. Questo blocco calcola matematicamente il fattore di scala
+        //  necessario per proiettare i punti normalizzati [0,1] della rete neurale sulla superficie del display.
+        //Questo consente ai landmark di essere stampati correttamente sugli arti
         val scale = max(width.toFloat() / imageWidth, height.toFloat() / imageHeight)
         val dx = (width - imageWidth * scale) / 2f
         val dy = (height - imageHeight * scale) / 2f
@@ -89,10 +104,11 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
             null
         }
 
-        // ORCHESTRAZIONE DEGLI ANALIZZATORI
-        // Viene rispettato il pattern "Chain of Responsibility":
-        // Prima si controlla se la posa rispetta i vincoli rigidi degli Equilibri.
-        // Se l'esito è nullo, si tenta la valutazione di Giri e infine Salti.
+
+        // Chain of Responsibility Pattern
+        // Il flusso interroga in cascata i moduli specializzati (Equilibri -> Giri -> Salti).
+        // Il primo modulo che riconosce e acquisisce matematicamente la posa interrompe
+        // la catena, restituendo il payload (Pair) con il risultato.
         val currentAnalisi = if (liveLandmarks != null) {
             AnalizzatoreEquilibri.analizza(liveLandmarks)
                 ?: AnalizzatoreGiri.analizza(liveLandmarks)
@@ -101,36 +117,41 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
             null
         }
 
-        //  LOGICA DI VALIDAZIONE E CONGELAMENTO FRAME
+
+        //MACCHINA A STATI DI DEBOUNCING (Validazione Segnale)
         if (currentAnalisi != null) {
             if (candidateResult?.first == currentAnalisi.first) {
-                // Conferma consecutiva dello stesso elemento
+                // Il segnale è coerente: l'AI ha confermato la stessa classificazione nel frame successivo
                 frameCounter++
                 missedFrames = 0
             } else {
-                // Nuovo elemento rilevato
+                //reset della macchina a stati e inizio nuovo conteggio
                 candidateResult = currentAnalisi
                 frameCounter = 1
                 missedFrames = 0
             }
 
             val nomePosa = candidateResult?.first?.uppercase() ?: ""
-            // I gesti esplosivi (Salti e Giri) sono così rapidi che vengono validati
-            // e congelati a video già al primo fotogramma utile (requiredFrames = 1).
-            // Le pose statiche richiedono invece la stabilità di almeno 2 fotogrammi.
+
+            // Logica di temporizzazione dinamica:
+            // I gesti cinetici esplosivi (Salti e Pivot) attraversano l'apice per frazioni di secondo.
+            // Vengono pertanto validati e bloccati in cache già al 1° fotogramma utile.
+            // Le pose isometiche (Equilibri) richiedono invece la stabilità confermata
+            // su almeno 2 fotogrammi consecutivi per scremare i falsi positivi.
             val isSalto = nomePosa.contains("SALTO") || nomePosa.contains("CABRIOLE") || nomePosa.contains("JETÉ")
             val isGiro = nomePosa.contains("GIRO") || nomePosa.contains("PIVOT")
 
             val requiredFrames = if (isSalto || isGiro) 1 else 2
 
             if (frameCounter >= requiredFrames) {
-                // Fotografia del risultato: salvataggio in cache per la visualizzazione prolungata
+                // Fotografia del risultato (Snapshot): allocazione del payload in memoria persistente
                 persistedResult = currentAnalisi
                 persistedLandmarks = liveLandmarks
                 lastDetectionTime = System.currentTimeMillis()
             }
         } else {
             missedFrames++
+            // Se l'AI non rileva l'elemento per più di X frame consecutivi, svuota la cache temporanea
             if (missedFrames > MAX_TOLERANCE_FRAMES) {
                 frameCounter = 0
                 candidateResult = null
@@ -138,12 +159,12 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
 
 
-        // 4. RENDERING GRAFICO
-        // Se non è ancora trascorso il timer di persistenza (2500ms),viene disegnato l'output a schermo.
+        // RENDERING GRAFICO SUL CANVAS HARDWARE
+        // Se il Watchdog di persistenza non è scaduto (< 2500ms), invia i draw-calls alla GPU.
         if (System.currentTimeMillis() - lastDetectionTime < PERSISTENCE_DURATION) {
 
             persistedLandmarks?.let { frozenLandmarks ->
-                // Disegno della nuvola di punti articolari sul corpo dell'atleta
+                // Mappatura e disegno della nuvola di punti articolari sul corpo dell'atleta
                 for (landmark in frozenLandmarks) {
                     val x = landmark.x() * imageWidth * scale + dx
                     val y = landmark.y() * imageHeight * scale + dy
@@ -151,7 +172,7 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
                 }
             }
 
-            // Richiamo della funzione dedicata per il pannello informativo inferiore
+            // Richiamo del sub-componente UI dedicato al pannello informativo inferiore
             drawResultOnCanvas(canvas, persistedResult)
 
         } else {
@@ -160,8 +181,9 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
     }
 
     /**
-     * Disegna il banner  stile "Dashboard" nella parte inferiore dello schermo.
-     * Segnala in verde gli elementi convalidati dal regolamento, o in rosso gli errori biomeccanici.
+     * Generazione Dinamica dell'HUD (Heads-Up Display) a schermo.
+     * Costruisce il pannello (Card) in sovrimpressione che comunica l'esito della classificazione,
+     * supportando l'accessibilità visiva tramite color-coding (Verde = Valido, Rosso = Non valido/Penalità).
      */
     private fun drawResultOnCanvas(canvas: Canvas, analisi: Pair<String, RisultatoDifficolta>?) {
         val (nomeDifficolta, risultato) = analisi ?: return
@@ -172,8 +194,9 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         val isSalto = nomeMaiuscolo.contains("SALTO") || nomeMaiuscolo.contains("CABRIOLE") || nomeMaiuscolo.contains("JETÉ")
         val isGiro = nomeMaiuscolo.contains("GIRO") || nomeMaiuscolo.contains("PIVOT")
 
-        // Nelle pose statiche (Equilibri), il regolamento distingue tra appoggio piatto ("Pianta")
-        // e sollevato sulla punta ("Relevé"), assegnando punteggi differenti.
+        // Nelle pose statiche (Equilibri), il Codice distingue l'appoggio plantare ("Pianta")
+        // dall'elevazione sull'avampiede ("Relevé"), assegnando decurtazioni specifiche.
+        // Questo blocco estrapola e formatta l'informazione da aggiungere in coda alla stringa.
         val testoReleve = if (isSalto || isGiro) {
             ""
         } else {
@@ -181,15 +204,17 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
 
 
-        // UI Layout dinamico: il pannello è più alto se deve ospitare anche
-        // i messaggi di errore o decurtazione del punteggio, altrimenti è compatto.
-        val cardWidth = widthF - 100f // Margine laterale di 50px per lato
+        // UI LAYOUT ENGINE
+        // Calcola dinamicamente le dimensioni del Box in base al payload testuale da stampare.
+        // Se vi sono penalità algoritmiche o errori esecutivi (Es. gamba piegata), il box
+        // incrementa la propria altezza per ospitare la seconda riga di testo.
+        val cardWidth = widthF - 100f // Margine laterale fisso
         val cardHeight = if (risultato.penalita > 0.0 || !risultato.isValida) 240f else 160f
         val cardLeft = 50f
-        val cardTop = heightF - cardHeight - 80f // Posizionato in basso con un po' di margine
+        val cardTop = heightF - cardHeight - 80f // Ancoraggio asse Y (Bottom con margine)
         val cornerRadius = 32f
 
-        // Sfondo della Card (Nero semi-trasparente )
+        // Renderizzazione Sfondo della Card
         val bgPaint = Paint().apply {
             color = "#CC121212".toColorInt()
             style = Paint.Style.FILL
@@ -198,7 +223,7 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
         canvas.drawRoundRect(cardLeft, cardTop, cardLeft + cardWidth, cardTop + cardHeight, cornerRadius, cornerRadius, bgPaint)
 
-        // 2. Barra laterale indicatrice di stato (Verde = Valido, Rosso = Non valido)
+        // Barra laterale indicatrice di stato
         val indicatorPaint = Paint().apply {
             color = if (risultato.isValida) "#00FF88".toColorInt() else "#FF5252".toColorInt()
             style = Paint.Style.FILL
@@ -206,7 +231,7 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
         canvas.drawRoundRect(cardLeft, cardTop, cardLeft + 16f, cardTop + cardHeight, cornerRadius, cornerRadius, indicatorPaint)
 
-        // 3. Scritta Principale (Nome Elemento + Punteggio Calcolato)
+        //Stampa della Stringa Primaria (Nome Elemento Cinetico + Punteggio Calcolato Integrale)
         resultPaint.textSize = 55f
         resultPaint.color = Color.WHITE
         val stringaValida = if (risultato.isValida) {
@@ -216,19 +241,26 @@ class PoseOverlayView(context: Context?, attrs: AttributeSet?) : View(context, a
         }
         canvas.drawText(stringaValida, cardLeft + 45f, cardTop + 65f, resultPaint)
 
-        // 4. Seconda Riga (Penalità per flessibilità insufficiente o Messaggio Errore)
+        // Stampa della Riga Diagnostica (Sub-Text / Error Messaging)
         textPaint.textSize = 45f
         if (risultato.isValida && risultato.penalita > 0.0) {
-            textPaint.color = "#FFD54F".toColorInt() // Giallo avviso (Warning)
+            // Caso Warning: Figura riconosciuta ma con deficit di ampiezza. Testo giallo
+            textPaint.color = "#FFD54F".toColorInt()
             canvas.drawText("Penalità applicata: -${String.format("%.2f", risultato.penalita)}", cardLeft + 45f, cardTop + 130f, textPaint)
         } else if (!risultato.isValida) {
-            textPaint.color = "#FF5252".toColorInt() // Rosso errore (Error)
+            // Caso Fatal: Figura respinta dai Firewall (es. atterraggio fallito). Testo rosso.
+            textPaint.color = "#FF5252".toColorInt()
             canvas.drawText(risultato.messaggioErrore, cardLeft + 45f, cardTop + 130f, textPaint)
         }
     }
 
+    /**
+     * Stato di Idle / Inattività.
+     */
     private fun drawSearching(canvas: Canvas) {
-        // Callback vuota intenzionalmente: se la rete non rileva nulla,
-        // lo schermo viene lasciato "pulito" in trasparenza per mostrare lo streaming video senza ostacoli.
+        // Callback lasciata intenzionalmente vuota.
+        // Se la rete neurale è nello stato di "Searching" (nessuna posa rilevata)
+        // o se la persistenza è scaduta, lo schermo viene lasciato in completa trasparenza
+        // (alpha channel zero) per non occludere l'esperienza di monitoraggio video (Viewfinder).
     }
 }

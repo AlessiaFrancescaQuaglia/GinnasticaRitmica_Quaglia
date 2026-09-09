@@ -8,12 +8,17 @@ import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 import kotlin.math.max
 import com.example.ginnasticaritmica.vision.giri.LucchettoGiri
 
+/**
+ * Modulo di inferenza per l'Equilibrio "Penché" (Spaccata con busto flesso in avanti).
+ * condivide l'apertura a 180° con il Grand Écart e l'inclinazione del busto con l'Arabesque.
+ */
 class EquilibrioPenche : Difficolta {
     override var nome = "GRAND ÉCART IND. (Penché)"
 
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // Acquisizione dei nodi spaziali (Landmarks) chiave
         val leftShoulder = landmarks[11]
         val rightShoulder = landmarks[12]
         val leftHip = landmarks[23]
@@ -23,11 +28,13 @@ class EquilibrioPenche : Difficolta {
         val leftAnkle = landmarks[27]
         val rightAnkle = landmarks[28]
 
+        // Estrapolazione dei Centri di Massa (Spalle e Bacino) per l'analisi del baricentro.
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
         val spallaY = (leftShoulder.y() + rightShoulder.y()) / 2f
         val bacinoCenterX = (leftHip.x() + rightHip.x()) / 2f
         val scalaCorpo = PoseAnalyzer.calculateDistance3D(leftShoulder, leftHip)
 
+        // Identificazione dinamica degli arti di supporto e sollevati
         val isLeftLowest = leftAnkle.y() > rightAnkle.y()
         val supportAnkle = if (isLeftLowest) leftAnkle else rightAnkle
         val liftedAnkle = if (isLeftLowest) rightAnkle else leftAnkle
@@ -37,31 +44,35 @@ class EquilibrioPenche : Difficolta {
         val rightKneeAngle = PoseAnalyzer.calculateAngle3D(rightHip, rightKnee, rightAnkle)
         val liftedKneeAngle = if (isLeftLowest) rightKneeAngle else leftKneeAngle
 
+        // Gestione Concorrenza (Mutex): inibisce l'analisi per prevenire
+        // collisioni con l'identificazione dei Pivot (es. Giro Penché).
         if (LucchettoGiri.giroAttivo != null) return null
 
-        // ==========================================
-        // 0. SCUDO DIREZIONALE ANTI-DÉGAGÉ!
-        // ==========================================
+
+        // SCUDO DIREZIONALE ANTI-DÉGAGÉ
+        // Determina la direzione del vettore piede a terra per capire dove "guarda" l'atleta.
         val supportHeel = if (isLeftLowest) landmarks[29] else landmarks[30]
         val supportToe = if (isLeftLowest) landmarks[31] else landmarks[32]
         val isFacingRight = supportToe.x() > supportHeel.x()
 
-        // Un Penché prevede la gamba sollevata ALL'INDIETRO. Se è avanti, lascialo al Dégagé!
+        // Filtro spaziale: nel Penché la gamba è estesa nel semispazio posteriore.
+        // Se la gamba è lanciata in avanti, la competenza logica passa al modulo "Dégagé".
         val isLegBackward = if (isFacingRight) liftedAnkle.x() < bacinoCenterX + (scalaCorpo * 0.1f) else liftedAnkle.x() > bacinoCenterX - (scalaCorpo * 0.1f)
         if (!isLegBackward) {
             return null
         }
 
-        // ==========================================
-        // 1. FIREWALL VERTICALITÀ (Flessibile)
-        // ==========================================
+        // FIREWALL VERTICALITÀ (Controllo Radicamento)
+        // Assicura che l'atleta sia piantata a terra (Y caviglia > Y bacino)
+        // e che la gamba libera sia effettivamente lanciata verso l'alto.
         if (supportAnkle.y() < bacinoY + 0.15f) return null
         if (liftedAnkle.y() > bacinoY + 0.10f) return null
         if (liftedKnee.y() > bacinoY + 0.10f) return null
 
-        // ==========================================
         // AGGIUNTA CHIRURGICA: SCUDO ANTI-CAMBRÉ
-        // ==========================================
+        // previene falsi positivi quando l'atleta esegue
+        // una flessione all'indietro (Cambré). In un Penché vero, il busto DEVE flettersi
+        // in avanti (verso la gamba di appoggio).
         val shoulderCenterX = (leftShoulder.x() + rightShoulder.x()) / 2f
         val isLeaningBackward = if (isFacingRight) {
             shoulderCenterX < bacinoCenterX - 0.05f
@@ -70,19 +81,24 @@ class EquilibrioPenche : Difficolta {
         }
         if (isLeaningBackward) return null
 
-        // ==========================================
-        // 2. FIREWALL BUSTO (Anti-Arabesque)
-        // ==========================================
+        // FIREWALL BUSTO (Anti-Arabesque)
+        // Se il busto è eretto (spalle significativamente sopra il bacino)
+        // e non c'è una flessione dorsale profonda (piede vicino alla testa),
+        // l'elemento è geometricamente classificabile come Arabesque. Il thread abortisce.
         val isBustoEretto = spallaY < bacinoY - 0.10f
         val isFlessioneDorsale = isBustoEretto && liftedAnkle.y() < spallaY + 0.20f
 
         if (isBustoEretto && !isFlessioneDorsale) {
-            return null // Busto alto senza inarcamento -> Arabesque
+            return null
         }
 
-        // ==========================================
-        // 3. CALCOLO IBRIDO SPACCATA (Anti-Illusione 3D)
-        // ==========================================
+
+        //  CALCOLO IBRIDO SPACCATA (Anti-Illusione Ottica 3D)
+        // L'algoritmo calcola l'angolo di spaccata SIA in 2D (sul piano schermo) SIA in 3D vettoriale,
+        // estraendo il valore massimo (max). Questo impedisce che una prospettiva di ripresa sfavorevole
+        // (es. telecamera in diagonale) causi una decurtazione ingiusta del punteggio matematico.
+
+        // Calcolo 2D (Piano XY) tramite Arcocoseno del Prodotto Scalare
         val dx1 = supportAnkle.x() - bacinoCenterX
         val dy1 = supportAnkle.y() - bacinoY
         val dx2 = liftedAnkle.x() - bacinoCenterX
@@ -94,9 +110,11 @@ class EquilibrioPenche : Difficolta {
         var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dot / (mag1 * mag2)))
         if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
 
+        // Calcolo 3D spaziale integrato
         val midHipLandmark = NormalizedLandmark.create(bacinoCenterX, bacinoY, (leftHip.z() + rightHip.z()) / 2f)
         val angoloSpaccata3D = PoseAnalyzer.calculateAngle3D(supportAnkle, midHipLandmark, liftedAnkle)
 
+        // Scelta del valore più favorevole all'atleta (mitigazione rumore del sensore)
         val aperturaSpaccata = max(angoloSpaccata2D, angoloSpaccata3D)
         val isBoucle = liftedKneeAngle < 100.0
 
@@ -104,24 +122,24 @@ class EquilibrioPenche : Difficolta {
             return null
         }
 
-        // ==========================================
-        // 4. VERIFICA RELEVÉ E PRESE
-        // ==========================================
+        //  VERIFICA RELEVÉ E PRESE (Contatto Fisico)
+        // Determina autonomamente la presa verificando l'intersezione dei volumi 3D tra polsi e caviglia.
         val distPolsoSx = PoseAnalyzer.calculateDistance3D(landmarks[15], liftedAnkle)
         val distPolsoDx = PoseAnalyzer.calculateDistance3D(landmarks[16], liftedAnkle)
         val conAiuto = (distPolsoSx < 0.15f || distPolsoDx < 0.15f)
 
         val inReleve = RegoleGinnastica.verificaReleve(landmarks, isLeftLowest)
 
-        // ==========================================
-        // 5. ASSEGNAZIONE VALORI UFFICIALI FIG
-        // ==========================================
+
+        //  ASSEGNAZIONE VALORI
+        // Il Codice dei Punteggi prevede ben 6 varianti di Penché con valori base diversi
+        // a seconda dell'inclinazione esatta del busto, dell'aiuto delle mani e della flessione della gamba.
         var valoreBase = 0.0
         if (isBoucle) {
             nome = if (conAiuto) "EQILIBRIO PENCHÉ CON BOUCLE (con aiuto)" else " EQUILIBRIO PENCHÉ CON BOUCLE (libero)"
             valoreBase = if (conAiuto) 0.50 else 0.60
         } else {
-            val isBustoProfondo = spallaY > bacinoY + 0.10f
+            val isBustoProfondo = spallaY > bacinoY + 0.10f // Sensore di massima flessione (Sotto l'orizzontale)
 
             if (isFlessioneDorsale) {
                 nome = if (conAiuto) "EQUILIBRIO PENCHÉ (Flessione dorsale, aiuto)" else "EQUILIBRIO PENCHÉ (Flessione dorsale)"
@@ -143,10 +161,14 @@ class EquilibrioPenche : Difficolta {
 
         if (!inReleve) valoreBase -= 0.10
 
+
+        //  CALCOLO PENALITÀ
+
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
 
+        // Tolleranza per la variante "Boucle" (in cui la spaccata non deve raggiungere i 180° per definizione geometrica)
         val deficitAmpiezza = if (isBoucle) 0.0 else (if (aperturaSpaccata >= 180.0) 0.0 else 180.0 - aperturaSpaccata)
 
         if (!isBoucle) {

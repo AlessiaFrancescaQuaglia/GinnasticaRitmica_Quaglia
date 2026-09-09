@@ -5,9 +5,20 @@ import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
 
+/**
+ * Modulo per il "Salto Enjambée" (Grand Jeté).
+ * Rappresenta la figura di volo fondamentale della ginnastica ritmica: una spaccata sagittale
+ * eseguita al culmine della fase aerea, con la gamba anteriore tesa in avanti e la
+ * posteriore tesa all'indietro.
+ */
 class SaltoEnjambee : Difficolta {
     override var nome = "SALTO ENJAMBÉE"
 
+
+    // MEMORIA DI STATO ROTAZIONALE
+    // Segure il movimento preparatorio dell'atleta. L'Enjambée (noto come "Jeté En Tournant"
+    // quando eseguito con rotazione) raddoppia quasi il suo valore base se l'atleta gira
+    // su se stessa immediatamente prima del decollo.
     companion object {
         private var tempoUltimaRotazione: Long = 0L
         private var ultimaDirezioneSpalleDestra: Boolean? = null
@@ -16,7 +27,10 @@ class SaltoEnjambee : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
-        // 1. SCUDO ANTI-GIRO: Se un giro è in corso, non è un salto!
+
+        // SCUDO ANTI-GIRO
+        // Disambigua i salti dai Pivot. Se il semaforo "LucchettoGiri" è attivo,
+        // l'atleta è ancorata a terra e l'inferenza balistica abortisce.
         if (com.example.ginnasticaritmica.vision.giri.LucchettoGiri.giroAttivo != null) {
             return null
         }
@@ -31,10 +45,10 @@ class SaltoEnjambee : Difficolta {
         val bacinoY = (leftHip.y() + rightHip.y()) / 2f
         val bacinoX = (leftHip.x() + rightHip.x()) / 2f
 
-        // ==========================================
-        // 1. FIREWALL BIOMECCANICO ANTI-GIRO E ANTI-EQUILIBRIO
-        // ==========================================
-        // Calcoliamo la lunghezza del femore per rendere l'algoritmo immune allo zoom della telecamera!
+
+        // FIREWALL ANTI-EQUILIBRIO
+        // Calcoliamo la lunghezza del femore (media bilaterale) per stabilire una scala
+        // dimensionale dinamica, rendendo l'algoritmo immune allo zoom ottico o digitale della fotocamera.
         val femoreSx = PoseAnalyzer.calculateDistance3D(leftHip, leftKnee)
         val femoreDx = PoseAnalyzer.calculateDistance3D(rightHip, rightKnee)
         val femoreMedio = (femoreSx + femoreDx) / 2f
@@ -43,32 +57,32 @@ class SaltoEnjambee : Difficolta {
         val lowestAnkle = if (isLeftLowest) leftAnkle else rightAnkle
         val hipOfLowestAnkle = if (isLeftLowest) leftHip else rightHip
 
-        // CONTROLLO 1: SPACCATA VERTICALE VS ORIZZONTALE
+        // SPACCATA VERTICALE VS ORIZZONTALE (Differenziale Altitudinale)
         val differenzaYCaviglie = kotlin.math.abs(leftAnkle.y() - rightAnkle.y())
 
-        // Se la differenza di altezza tra le caviglie è maggiore di un femore e mezzo,
-        // significa palesemente che una gamba punta a terra e l'altra è sparata in alto.
-        // Questo è un Penché o un'Illusion, NON un Enjambé!
+        // Se la differenza di altezza tra le caviglie è grande (> 1.5 femori), significa
+        // che un arto sta puntando verso il soffitto e l'altro verso il pavimento.
+        // Questo identifica chiaramente un Equilibrio Penché, non un Salto Enjambée (che è orizzontale).
         if (differenzaYCaviglie > femoreMedio * 1.5f) {
-            return null // Blocca il salto istantaneamente. Lascia girare la ginnasta!
+            return null // Blocca il salto istantaneamente. Lascia l'inferenza alle classi di Equilibrio.
         }
 
-        // CONTROLLO 2: PIEDE A TERRA A FARE DA PILASTRO
+        // PIEDE A TERRA
         val distAncaCavigliaY = lowestAnkle.y() - hipOfLowestAnkle.y()
 
-        // Se la gamba di supporto scende dritta verso il basso (lunga quasi 2 femori sull'asse Y),
-        // l'atleta è ancorata a terra e non sta volando.
+        // Se l'arto inferiore più basso scende quasi verticalmente sull'asse Y (occupando lo spazio
+        // di una gamba estesa), deduciamo che stia sorreggendo l'atleta.
         if (distAncaCavigliaY > femoreMedio * 1.8f) {
-            return null // È a terra! Non è un salto.
+            return null // L'atleta è a terra. Assenza di fase balistica.
         }
 
-        // ==========================================
-        // 2. ANALISI DIREZIONE E TOURNANT
-        // ==========================================
+
+        //  ANALISI DIREZIONE E TOURNANT
         val spallaSx = landmarks[11]
         val spallaDx = landmarks[12]
         val spallaCentroY = (spallaSx.y() + spallaDx.y()) / 2f
 
+        // Aggiorna lo storico rotazionale per l'assegnazione del moltiplicatore "En Tournant".
         val isSpalleVersoDestra = spallaSx.x() < spallaDx.x()
         if (ultimaDirezioneSpalleDestra == null) {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
@@ -77,6 +91,8 @@ class SaltoEnjambee : Difficolta {
             ultimaDirezioneSpalleDestra = isSpalleVersoDestra
         }
 
+        // Assegnazione degli arti: Usa il naso (Sguardo) per capire la direzione del moto
+        // e classifica dinamicamente gli arti in "Front" (Anteriore) e "Back" (Posteriore).
         val isFacingRight = landmarks[0].x() > bacinoX
         val isLeftFront = if (isFacingRight) leftAnkle.x() > rightAnkle.x() else leftAnkle.x() < rightAnkle.x()
 
@@ -89,14 +105,15 @@ class SaltoEnjambee : Difficolta {
         val backAnkle = if (isLeftFront) rightAnkle else leftAnkle
         val backToe = if (isLeftFront) landmarks[32] else landmarks[31]
 
+        // Nel Grand Jeté/Enjambée la gamba anteriore deve essere tesa.
         val frontKneeAngle = PoseAnalyzer.calculateAngle3D(frontHip, frontKnee, frontAnkle)
         if (frontKneeAngle < 130.0) return null
 
         val centroBacino = NormalizedLandmark.create(bacinoX, bacinoY, 0f)
 
-        // ==========================================
-        // 3. CALCOLO SPACCATA
-        // ==========================================
+
+        //CALCOLO SPACCATA
+        // Calcola i vettori planari delle cosce per misurare l'angolo geometrico.
         val vFrontX = frontAnkle.x() - frontHip.x()
         val vFrontY = frontAnkle.y() - frontHip.y()
         val vBackX = backKnee.x() - backHip.x()
@@ -109,22 +126,27 @@ class SaltoEnjambee : Difficolta {
         var angoloSpaccata2D = Math.toDegrees(kotlin.math.acos(dot / (magF * magB)))
         if (angoloSpaccata2D.isNaN()) angoloSpaccata2D = 0.0
 
-        // ==========================================
-        // 3. CALCOLO SPACCATA (Correzione Orizzontalità)
-        // ==========================================
 
-        // Verifica matematica della divergenza: le gambe si stanno aprendo in direzioni opposte sull'asse X?
+        // CORREZIONE ORIZZONTALITÀ
+        // Soluzione al problema delle inquadrature frontali.
+        // Quando la spaccata sagittale è vista frontalmente, le gambe si "accorciano" visivamente
+        // e la rete neurale sbaglia il calcolo dell'angolo Z (profondità).
+
+        // Verifica matematica della divergenza: i vettori X delle gambe hanno segni opposti?
         val isOppositeHorizontal = (vFrontX > 0 && vBackX < 0) || (vFrontX < 0 && vBackX > 0)
 
         if (isOppositeHorizontal) {
-            //Caviglia anteriore e ginocchio posteriore sono allineati orizzontalmente col bacino
+            // Verifica altimetrica: se entrambe le estremità (caviglia avanti, ginocchio dietro)
+            // sono allineate orizzontalmente col bacino sull'asse Y
             if (frontAnkle.y() <= bacinoY + 0.05f && backKnee.y() <= bacinoY + 0.05f) {
-                //si forza l'angolo a 180° per annullare lo schiacciamento prospettico (distorsione 2D della fotocamera)
+                // l'algoritmo forza l'angolo a 180°. Ignora la misurazione 3D distorta,
+                // affidandosi alla logica euristica: se le gambe sono alte e opposte, la spaccata è corretta.
                 angoloSpaccata2D = 180.0
 
-                //Gli arti sono quasi in asse orizzontale, ma leggermente più bassi del bacino
             } else if (frontAnkle.y() <= bacinoY + 0.15f && backKnee.y() <= bacinoY + 0.15f) {
-                //si estrae il massimo garantendo almeno 165° per evitare penalità ingiuste dovute all'inquadratura
+                //Gli arti sono quasi orizzontali, ma con una lievissima caduta di quota.
+                // Si estrae il massimo, garantendo d'ufficio almeno 165° per evitare
+                // decurtazioni dovute unicamente a un'angolazione di ripresa in parte occlusa.
                 angoloSpaccata2D = kotlin.math.max(angoloSpaccata2D, 165.0)
             }
         }
@@ -137,9 +159,8 @@ class SaltoEnjambee : Difficolta {
         val tempoTrascorsoDaRotazione = System.currentTimeMillis() - tempoUltimaRotazione
         val isEnTournant = tempoTrascorsoDaRotazione < 1500L
 
-        // ==========================================
-        // 4. CLASSIFICAZIONE (BOUCLE / FLESSIONI)
-        // ==========================================
+
+        // CLASSIFICAZIONE VARIANTI (Boucle / Flessione Dorsale)
         var valoreBase = 0.30
         val nose = landmarks[0]
         val backKneeAngle = PoseAnalyzer.calculateAngle3D(backHip, backKnee, backAnkle)
@@ -151,14 +172,17 @@ class SaltoEnjambee : Difficolta {
         val schiacciamentoTroncoY = bacinoY - spallaCentroY
         val distNasoBacino = PoseAnalyzer.calculateDistance3D(nose, centroBacino)
 
+        // identifica l'inarcamento misurando lo schiacciamento del busto (Cambré).
         val isFlessioneEvidente = distNasoBacino < 0.25f ||
                 spostamentoSpalleDietro > 0.25f ||
                 (schiacciamentoTroncoY > 0.0f && schiacciamentoTroncoY < 0.10f && spostamentoSpalleDietro > 0.05f) ||
-                (schiacciamentoTroncoY < 0.0f)
+                (schiacciamentoTroncoY < 0.0f) // Schiena piegata al di sotto del bacino.
 
+        // Priorità all'elemento più complesso (Boucle, o Anello chiuso)
         val isBoucle = backKneeAngle <= 135.0 && distanzaTestaPiede <= 0.25f
         val isFlessione = !isBoucle && (isFlessioneEvidente || (backKneeAngle > 135.0 && distanzaTestaPiede <= 0.20f))
 
+        // Generazione del nome formale della difficoltà
         if (isBoucle) {
             nome = if (isEnTournant) "SALTO JETÉ TOURNANT BOUCLE / AGIURG." else "SALTO ENJAMBÉE CON BOUCLE"
             valoreBase = if (isEnTournant) 0.60 else 0.40
@@ -170,9 +194,8 @@ class SaltoEnjambee : Difficolta {
             valoreBase = if (isEnTournant) 0.40 else 0.30
         }
 
-        // ==========================================
-        // 5. PENALITÀ E RESTITUZIONE
-        // ==========================================
+
+        //  PENALITÀ
         var penalita = 0.0
         var isValida = true
         var msgErrore = ""
@@ -182,10 +205,13 @@ class SaltoEnjambee : Difficolta {
         else if (angoloSpaccata in 140.0..159.9) penalita += 0.30
         else {
             penalita += 0.50
-            isValida = false
+            isValida = false // Drop Tecnico: Divaricazione insufficiente per configurare un salto
             msgErrore = "Apertura spaccata insufficiente"
         }
 
+        // Controllo Forma Arto Posteriore:
+        // Nel Jeté puro (Senza Boucle), la gamba dietro deve essere in totale estensione.
+        // Se non vi è flessione del tronco a mascherare (isFlessioneEvidente), il piegamento è un errore.
         if (!nome.contains("BOUCLE") && isValida && !isFlessioneEvidente) {
             if (backKneeAngle < 150.0) {
                 penalita += 0.30
@@ -193,6 +219,7 @@ class SaltoEnjambee : Difficolta {
             }
         }
 
+        // Reset del timer rotazionale: la figura è certificata e convalidata.
         if (isValida) tempoUltimaRotazione = 0L
 
         return RisultatoDifficolta(isValida, if (isValida) valoreBase else 0.0, penalita, false, msgErrore)

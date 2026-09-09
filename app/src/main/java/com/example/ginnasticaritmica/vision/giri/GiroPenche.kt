@@ -4,19 +4,34 @@ import com.example.ginnasticaritmica.vision.Difficolta
 import com.example.ginnasticaritmica.vision.PoseAnalyzer
 import com.example.ginnasticaritmica.vision.RisultatoDifficolta
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
+import kotlin.math.abs
 import kotlin.math.max
 
+/**
+ * Modulo per l'inferenza del "Giro Grand Écart Indietro" (comunemente noto come Pivot Penché).
+ * L'atleta ruota su un piede mentre mantiene una spaccata verticale completa,
+ * con il busto flesso in avanti verso il suolo.
+ * Dal punto di vista della Computer Vision, questa posa subisce fortissime auto-occlusioni
+ * durante la rotazione. L'architettura si affida a una Macchina a Stati Finiti (FSM)
+ * con ritenzione delle feature (Latch) acquisite nei momenti di massima visibilità.
+ */
 class GiroPenche : Difficolta {
     override var nome = "GIRO GRAND ÉCART INDIETRO"
 
+    // MEMORIA PERSISTENTE (FSM - Finite State Machine)
+    // Variabili allocate staticamente per sopravvivere ai cicli a 30 FPS,
+    // garantendo il tracciamento temporale dell'elemento rotazionale.
     companion object {
         private var mezziGiriCompletati = 0
         private var statoFronteRetro = 0
 
+        // Watchdog Timers per la tolleranza ai guasti
         private var timestampUltimoFrameBusto = 0L
         private var timestampUltimoSwap = 0L
         private var isGiroInCorso = false
 
+        // Registri Latch: memorizzano le condizioni iniziali e le blindano
+        // per tutto il ciclo di vita del giro.
         private var haUsatoAiuto = false
         private var isBoucleSakuraLocked = false
         private var isFormaBloccata = false
@@ -28,6 +43,8 @@ class GiroPenche : Difficolta {
     override fun valuta(landmarks: List<NormalizedLandmark>): RisultatoDifficolta? {
         if (landmarks.size <= 32) return null
 
+        // Gestione Concorrenza (Semaforo Mutex):
+        // Se un'altra classe Pivot ha acquisito il lock rotazionale, questa classe abortisce.
         val idGiroFisso = this.javaClass.simpleName
         if (!LucchettoGiri.possoValutare(idGiroFisso)) return null
 
@@ -57,9 +74,10 @@ class GiroPenche : Difficolta {
 
         val scalaCorpo = PoseAnalyzer.calculateDistance3D(leftShoulder, leftHip)
 
-        // ==========================================
-        // 0. FIREWALL BASE & RESET DINAMICO
-        // ==========================================
+
+        // FIREWALL BASE e RESET DINAMICO
+        // Controllo Gravitazionale: se la caviglia portante è troppo vicina
+        // al busto sull'asse Y, l'atleta non è in piedi. Svuota il buffer e abortisce.
         if (!isFormaBloccata) {
             if (supportAnkle.y() < bacinoY + (scalaCorpo * 1.2f)) {
                 resetGiro()
@@ -67,6 +85,7 @@ class GiroPenche : Difficolta {
             }
         }
 
+        // Watchdog per la perdita di quota della gamba libera
         val ginocchioSupportoY = if (isLeftLowest) leftKnee.y() else rightKnee.y()
 
         if (liftedAnkle.y() > ginocchioSupportoY) {
@@ -75,8 +94,9 @@ class GiroPenche : Difficolta {
                 return null
             } else {
                 if (timestampGambaGiu == 0L) {
-                    timestampGambaGiu = System.currentTimeMillis()
+                    timestampGambaGiu = System.currentTimeMillis() // Innesco timer di caduta
                 } else if (System.currentTimeMillis() - timestampGambaGiu > 800L) {
+                    // Tolleranza superata: l'atleta ha perso irreparabilmente l'equilibrio
                     if (!isGiroInCorso) {
                         resetGiro()
                         return null
@@ -84,19 +104,22 @@ class GiroPenche : Difficolta {
                 }
             }
         } else {
-            timestampGambaGiu = 0L
+            timestampGambaGiu = 0L // Riarmo timer
         }
 
-        // ==========================================
-        // 1. VERIFICA POSA E LATCH DELLA FORMA
-        // ==========================================
+
+        // VERIFICA POSA E LATCH DELLA FORMA
         val dxSpalle = rightShoulder.x() - leftShoulder.x()
         val sogliaSwap = max(0.015f, scalaCorpo * 0.08f)
         val statoAttualeSpalle = if (dxSpalle > sogliaSwap) 1 else if (dxSpalle < -sogliaSwap) -1 else 0
 
         if (!isFormaBloccata) {
+            // Sensore di prossimità per l'anello posteriore (Boucle)
             val distNasoCaviglia = PoseAnalyzer.calculateDistance3D(nose, liftedAnkle)
 
+            // Fusione Sensoriale 2D/3D per il tracciamento della spaccata in rotazione
+            // L'uso combinato dell'Arcocoseno planare e del prodotto scalare tridimensionale
+            // assicura che il valore di massima estensione non venga intaccato dalla parallasse.
             val dx1 = supportAnkle.x() - bacinoCenterX
             val dy1 = supportAnkle.y() - bacinoY
             val dx2 = liftedAnkle.x() - bacinoCenterX
@@ -113,10 +136,12 @@ class GiroPenche : Difficolta {
 
             val isBustoOrizzontaleOSotto = spallaY > bacinoY - (scalaCorpo * 0.5f)
 
-            // LA TUA REGOLA D'ORO: Il Penché Boucle HA IL PIEDE ATTACCATO ALLA TESTA!
-            // (La distanza deve essere molto piccola: scalaCorpo * 0.6f)
+            // REGOLA STRUTTURALE DELL'ANELLO (Boucle):
+            // Se la gamba posteriore è flessa (<145°), l'unico modo per renderla valida è
+            // che il piede tocchi la testa (distanza ridottissima). Altrimenti è solo un errore esecutivo.
             val isBoucleAttuale = (liftedKneeAngle < 145.0) && (distNasoCaviglia < (scalaCorpo * 0.6f))
 
+            // Nel Boucle, il busto deve flettersi così profondamente (Cambré) da "sprofondare" sotto il bacino.
             val isBustoSprofondato = spallaY > bacinoY + (scalaCorpo * 0.1f)
             if (isBoucleAttuale && !isBustoSprofondato) {
                 return null
@@ -128,50 +153,54 @@ class GiroPenche : Difficolta {
                 return null
             }
 
+            //  Aggancio di stato confermato.
             isBoucleSakuraLocked = isBoucleAttuale
             gambaDiSupportoIsLeft = isLeftLowest
             isFormaBloccata = true
-            LucchettoGiri.blocca(idGiroFisso)
+            LucchettoGiri.blocca(idGiroFisso) // Chiusura del Mutex
 
             statoFronteRetro = statoAttualeSpalle
             timestampUltimoFrameBusto = System.currentTimeMillis()
             timestampUltimoSwap = System.currentTimeMillis()
         } else {
+            // Mantenimento (Hysteresis elastica durante il giro)
             val isBustoAncoraGiu = spallaY > bacinoY - (scalaCorpo * 0.7f)
             if (isBustoAncoraGiu) {
                 timestampUltimoFrameBusto = System.currentTimeMillis()
             } else {
                 val tolleranzaBusto = if (isGiroInCorso) 1500L else 800L
                 if (System.currentTimeMillis() - timestampUltimoFrameBusto > tolleranzaBusto) {
-                    resetGiro()
+                    resetGiro() // Busto rialzato in via definitiva, elemento concluso
                     return null
                 }
             }
 
+            // Deadlock breaker globale (Timeout 2 secondi)
             if (isGiroInCorso && System.currentTimeMillis() - timestampUltimoSwap > 2000L) {
                 resetGiro()
                 return null
             }
         }
 
-        // ==========================================
-        // 2. SENSORE AIUTO
-        // ==========================================
+
+        // SENSORE AIUTO (Collision Detection)
+        // Intersezione dei volumi 3D per rilevare se l'atleta sta fisicamente afferrando
+        // la caviglia sollevata.
         if (!isFormaBloccata) {
             val distPolsoSx = PoseAnalyzer.calculateDistance3D(leftWrist, liftedAnkle)
             val distPolsoDx = PoseAnalyzer.calculateDistance3D(rightWrist, liftedAnkle)
             if (distPolsoSx < (scalaCorpo * 0.8f) || distPolsoDx < (scalaCorpo * 0.8f)) haUsatoAiuto = true
         }
 
-        // ==========================================
-        // 3. MOTORE HYSTERESIS X-SWAP
-        // ==========================================
+        // MOTORE  X-SWAP
+        // Traccia lo Zero-Crossing sull'asse X delle spalle per quantificare i mezzi giri.
         if (isFormaBloccata) {
             if (statoFronteRetro == 0 && statoAttualeSpalle != 0) {
                 statoFronteRetro = statoAttualeSpalle
             } else if (statoFronteRetro != 0 && statoAttualeSpalle != 0 && statoAttualeSpalle != statoFronteRetro) {
                 val tempoDalUltimoSwap = System.currentTimeMillis() - timestampUltimoSwap
 
+                // Finestra di refrattarietà per stabilizzare la lettura
                 if (tempoDalUltimoSwap > 150L) {
                     mezziGiriCompletati++
                     statoFronteRetro = statoAttualeSpalle
@@ -186,8 +215,11 @@ class GiroPenche : Difficolta {
 
         val giriCompletati = mezziGiriCompletati / 2
 
+        // Sospende il reporting finché la rotazione non genera risultati concreti
         if (giriCompletati == 0 && mezziGiriCompletati == 0 && !isFormaBloccata) return null
 
+
+        //  ASSEMBLAGGIO DEL VALORE
         val valoreBaseDifficolta = if (haUsatoAiuto) 0.40 else 0.50
         val valoreTotale = if (giriCompletati >= 1) valoreBaseDifficolta + ((giriCompletati - 1) * 0.10) else 0.0
 
@@ -206,6 +238,10 @@ class GiroPenche : Difficolta {
         return RisultatoDifficolta(true, valoreTotale, 0.0, true, "")
     }
 
+    /**
+     * Svuotamento della FSM (Garbage Collection di stato).
+     * Libera il blocco Mutex ripristinando la disponibilità del motore rotazionale.
+     */
     private fun resetGiro() {
         mezziGiriCompletati = 0
         statoFronteRetro = 0
