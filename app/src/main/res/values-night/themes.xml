@@ -2,6 +2,14 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.GinnasticaRitmica" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your dark theme here. -->
-        <!-- <item name="colorPrimary">@color/my_dark_primary</item> -->
+
+        <!-- Aggiungiamo il collegamento anche nella modalità scura -->
+        <item name="popupMenuStyle">@style/StileNuvoletta</item>
+    </style>
+
+    <!-- Lo stile per la modalità scura -->
+    <style name="StileNuvoletta" parent="Widget.Material3.PopupMenu">
+        <item name="android:popupBackground">@drawable/bg_popup_rounded</item>
+        <item name="overlapAnchor">false</item>
     </style>
 </resources>

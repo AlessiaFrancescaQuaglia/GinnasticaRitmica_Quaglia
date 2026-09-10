@@ -19,12 +19,18 @@
         android:name="com.example.ginnasticaritmica.ui.fragment.LoginFragment"
         android:label="Login"
         tools:layout="@layout/fragment_login">
+
         <action
             android:id="@+id/action_loginFragment_to_coachDashboardFragment"
-            app:destination="@id/coachDashboardFragment" />
+            app:destination="@id/coachDashboardFragment"
+            app:popUpTo="@id/homeInfoFragment"
+            app:popUpToInclusive="true" />
+
         <action
             android:id="@+id/action_loginFragment_to_athleteDashboardFragment"
-            app:destination="@id/athleteDashboardFragment" />
+            app:destination="@id/athleteDashboardFragment"
+            app:popUpTo="@id/homeInfoFragment"
+            app:popUpToInclusive="true" />
     </fragment>
 
     <fragment

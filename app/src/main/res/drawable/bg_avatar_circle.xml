@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="oval">
+    <!-- Questo è un lilla chiarissimo, perfetto per far risaltare un'icona viola -->
+    <solid android:color="#F3E5F5" />
+</shape>

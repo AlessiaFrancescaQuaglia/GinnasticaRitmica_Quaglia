@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Colore di sfondo (es. lilla chiarissimo/grigio perla) -->
+    <solid android:color="#F8F6FA" />
+    <!-- Arrotondamento degli angoli -->
+    <corners android:radius="16dp" />
+</shape>

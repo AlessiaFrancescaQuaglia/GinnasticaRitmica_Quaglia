@@ -5,21 +5,21 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ContextThemeWrapper
+import android.widget.Toast
+import androidx.appcompat.widget.PopupMenu
 import androidx.core.graphics.toColorInt
-import androidx.core.view.GravityCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.activity.OnBackPressedCallback
 import androidx.navigation.fragment.findNavController
 import androidx.work.ExistingPeriodicWorkPolicy
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.example.ginnasticaritmica.viewmodel.CoachViewModel
 import com.example.ginnasticaritmica.R
 import com.example.ginnasticaritmica.worker.ScadenzaWorker
 import com.example.ginnasticaritmica.databinding.FragmentCoachDashboardBinding
-import com.firebase.ui.auth.AuthUI
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -32,12 +32,8 @@ class CoachDashboardFragment : Fragment() {
 
     private lateinit var binding: FragmentCoachDashboardBinding
     private val viewModel: CoachViewModel by activityViewModels()
-    // ActivityViewModels: Sfrutta il ViewModel dell'Activity madre. Così, se si cambia schermata e si ritorna a quella precedente
-    // i dati statistici sono già pronti e non sono da ricaricare
     private val db = FirebaseFirestore.getInstance()
 
-    // Dichiaro 3 variabili ListenerRegistration.
-    // Ognuna serve a memorizzare l'ascolto del DB.
     private var allenatriceListener: ListenerRegistration? = null
     private var gareListener: ListenerRegistration? = null
     private var atleteListener: ListenerRegistration? = null
@@ -53,11 +49,17 @@ class CoachDashboardFragment : Fragment() {
     @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        // BLOCCO TASTO INDIETRO: Impedisce di chiudere l'app o tornare al login
+        requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                // Mostra un piccolo avviso testuale invece di chiudere l'app
+                Toast.makeText(requireContext(), "Usa il menu in alto a sinistra per disconnetterti", Toast.LENGTH_SHORT).show()
+            }
+        })
 
         // Recupero nome dell'allenatrice per il benvenuto
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid
         if (uidAllenatrice != null) {
-
             allenatriceListener = db.collection("Allenatrici").document(uidAllenatrice).addSnapshotListener { documento, error ->
                 if (error != null) return@addSnapshotListener
                 if (documento != null && documento.exists()) {
@@ -68,81 +70,57 @@ class CoachDashboardFragment : Fragment() {
         }
 
         // ATTIVAZIONE NOTIFICHE SOLO PER ALLENATRICE
-        // Questo timer si attiva SOLO quando l'allenatrice entra nel suo pannello
         val controlloScadenzeRequest = PeriodicWorkRequestBuilder<ScadenzaWorker>(1, TimeUnit.DAYS).build()
-
         WorkManager.getInstance(requireContext()).enqueueUniquePeriodicWork(
             "ControlloScadenzeGiornaliero",
             ExistingPeriodicWorkPolicy.KEEP,
             controlloScadenzeRequest
         )
 
-        // Test immediato diu debug
-        //val testImmediato = OneTimeWorkRequestBuilder<ScadenzaWorker>().build()
-       // WorkManager.getInstance(requireContext()).enqueueUniqueWork(
-        //"TestImmediato",
-        //ExistingWorkPolicy.REPLACE,
-        //testImmediato
-        //)
-
-        // Invece di impostare a mano i testi, l'intero layout viene agganciato direttamente al ViewModel.
-        // Quando il ViewModel cambia, l'XML si aggiorna da solo
         binding.viewModel = viewModel
         binding.lifecycleOwner = viewLifecycleOwner
 
-        // Gestione apertura menù laterale
-        binding.topAppBar.setNavigationOnClickListener {
-            binding.drawerLayout.openDrawer(androidx.core.view.GravityCompat.START)
-        }
+        binding.topAppBar.setNavigationOnClickListener { viewMenu ->
 
-        // Gestione dei click sui tasti del menù laterale
-        binding.navView.setNavigationItemSelectedListener { menuItem ->
-            when (menuItem.itemId) {
-                R.id.nav_home_dashboard -> {
-                    binding.drawerLayout.closeDrawer(GravityCompat.START)
-                }
-                R.id.profiloAllenatriceFragment -> {
-                    findNavController().navigate(R.id.profiloAllenatriceFragment)
-                }
-                R.id.listaGareFragment -> {
-                    findNavController().navigate(R.id.listaGareFragment)
-                }
-                R.id.nav_atlete -> {
-                    findNavController().navigate(R.id.action_coachDashboard_to_gestioneAtlete)
-                }
-                R.id.AnalisiPosaFragment -> {
-                    findNavController().navigate(R.id.action_coachDashboardFragment_to_analisiPosaFragment)
-                }
-                R.id.presenzeFragment -> {
-                    findNavController().navigate(R.id.presenzeFragment)
-                }
-                // Logout logico: torna alla pagina di Login "svuotando" lo stack
-                R.id.nav_logout -> {
-                    //spengo i timer in background
-                    WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeGiornaliero")
-                    WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeImmediato")
-                    //scollega fisicamente l'account Google e Firebase
-                    AuthUI.getInstance()
-                        .signOut(requireContext())
-                        .addOnCompleteListener {
-                            //quando ha finito di scollegarsi, ritornas alla pagina di Login
-                            findNavController().navigateUp()
-                        }
+            // Creazione standard: prenderà automaticamente il design arrotondato dal themes.xml
+            val contestoConTema = android.view.ContextThemeWrapper(requireContext(), R.style.StileMenuScuro)
+            val popup = PopupMenu(contestoConTema, viewMenu)
+            popup.menuInflater.inflate(R.menu.coach_drawer_menu, popup.menu)
+
+            // Forza la visibilità delle icone
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                popup.setForceShowIcon(true)
+            }
+
+            popup.setOnMenuItemClickListener { menuItem ->
+                when (menuItem.itemId) {
+                    R.id.profiloAllenatriceFragment -> {
+                        findNavController().navigate(R.id.profiloAllenatriceFragment)
+                        true
+                    }
+                    R.id.nav_logout -> {
+                        WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeGiornaliero")
+                        WorkManager.getInstance(requireContext()).cancelUniqueWork("ControlloScadenzeImmediato")
+
+                        com.firebase.ui.auth.AuthUI.getInstance()
+                            .signOut(requireContext())
+                            .addOnCompleteListener {
+                                findNavController().navigateUp()
+                            }
+                        true
+                    }
+                    else -> false
                 }
             }
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
-            true
+            popup.show()
         }
 
-        // Avvio della funzione che carica tutti i dati della Dashboard
         caricaRiepilogoDashboard()
     }
 
-
     @SuppressLint("SetTextI18n")
     private fun caricaRiepilogoDashboard() {
-
-        //CARICAMENTO GARE IN TEMPO REALE
+        // CARICAMENTO GARE IN TEMPO REALE
         gareListener = db.collection("Gare").addSnapshotListener { snapshot, error ->
             if (error != null) {
                 binding.tvNumeroGareDashboard.text = "?"
@@ -154,12 +132,11 @@ class CoachDashboardFragment : Fragment() {
             }
         }
 
-        //CARICAMENTO ATLETE E CALCOLO SCADENZE CERTIFICATI (IN TEMPO REALE)
+        // CARICAMENTO ATLETE E CALCOLO SCADENZE CERTIFICATI
         val uidAllenatrice = FirebaseAuth.getInstance().currentUser?.uid
 
         if (uidAllenatrice != null) {
             atleteListener = db.collection("Atlete")
-            //la query NON scarica tutte le atlete della palestra, ma solo quelle che sono state assegnate all'allenatrice corrente.
                 .whereEqualTo("idAllenatrice", uidAllenatrice)
                 .addSnapshotListener { snapshot, error ->
 
@@ -169,14 +146,12 @@ class CoachDashboardFragment : Fragment() {
                         return@addSnapshotListener
                     }
 
-                    // Aggiorna il numero totale delle atlete dell'allenatice loggata
                     binding.tvContatoreAtlete.text = snapshot.size().toString()
 
                     val atleteCritiche = mutableListOf<String>()
                     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
                     val dataOggi = Date()
 
-                    // Ciclo per controllare ogni singola atleta trovata e valutare le scadenze dei certificati
                     for (documento in snapshot.documents) {
                         val nome = documento.getString("nome") ?: "Sconosciuta"
                         val scadenza = documento.getString("scadenzaCertificato") ?: ""
@@ -190,21 +165,18 @@ class CoachDashboardFragment : Fragment() {
                                         TimeUnit.MILLISECONDS
                                     )
 
-                                    // Classificazione degli stati critici
                                     if (diffGiorni < 0) {
                                         atleteCritiche.add("🔴 $nome (SCADUTO il $scadenza)")
                                     } else if (diffGiorni in 0..30) {
                                         atleteCritiche.add("🟡 $nome (Scade tra $diffGiorni giorni)")
                                     }
                                 }
-                            } catch (_: Exception) {
-                            }
+                            } catch (_: Exception) {}
                         } else {
                             atleteCritiche.add("🔴 $nome (Certificato Mancante)")
                         }
                     }
 
-                    // Aggiornamento dinamico della UI con feedback a colori
                     if (atleteCritiche.isEmpty()) {
                         binding.tvAvvisiScadenze.text = "✅ Tutti i certificati sono in regola!"
                         binding.tvAvvisiScadenze.setTextColor("#4CAF50".toColorInt())
@@ -216,11 +188,8 @@ class CoachDashboardFragment : Fragment() {
         }
     }
 
-    //PREVENZIONE DEI MEMORY LEAK
     override fun onDestroyView() {
         super.onDestroyView()
-        // Quando il fragment muore, i 3 listener asincroni vanno spenti manualmente.
-        // Altrimenti, proverebbero ad aggiornare grafiche che non esistono più, causando un crash dell'app
         allenatriceListener?.remove()
         gareListener?.remove()
         atleteListener?.remove()

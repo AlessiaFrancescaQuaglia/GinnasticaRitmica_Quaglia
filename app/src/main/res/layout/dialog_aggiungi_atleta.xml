@@ -83,4 +83,16 @@
         app:strokeColor="@color/viola_torre"
         style="?attr/materialButtonOutlinedStyle"/>
 
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSalvaPersonalizzato"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="SALVA"
+        android:textColor="@android:color/white"
+        android:backgroundTint="@color/viola_torre"
+        app:strokeColor="@color/viola_torre"
+        style="?attr/materialButtonOutlinedStyle"
+        app:cornerRadius="8dp" />
+
 </LinearLayout>

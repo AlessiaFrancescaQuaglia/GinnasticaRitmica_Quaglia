@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- 1. Dashboard -->
+    <item
+        android:id="@+id/coachDashboardFragment"
+        android:icon="@drawable/ic_dashboard"
+        android:title="Dashboard" />
+
+    <!-- 2. Gestione Atlete -->
+    <item
+        android:id="@+id/gestioneAtleteFragment"
+        android:icon="@drawable/ic_atlete"
+        android:title="Atlete" />
+
+    <!-- 3. Lista Gare -->
+    <item
+        android:id="@+id/listaGareFragment"
+        android:icon="@drawable/ic_gare"
+        android:title="Gare" />
+
+    <!-- 4. Appello / Presenze (Usato al posto del Calendario generico) -->
+    <item
+        android:id="@+id/presenzeFragment"
+        android:icon="@drawable/ic_calendar"
+        android:title="Appello" />
+
+    <!-- 5. Analisi video difficoltà -->
+    <item
+        android:id="@+id/analisiPosaFragment"
+        android:icon="@drawable/ic_video"
+        android:title="Analisi Difficoltà" />
+
+</menu>

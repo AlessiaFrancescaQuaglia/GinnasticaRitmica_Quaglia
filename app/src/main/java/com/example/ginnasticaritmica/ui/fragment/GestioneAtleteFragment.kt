@@ -77,6 +77,10 @@ class GestioneAtleteFragment : Fragment() {
         spinner.adapter =
             ArrayAdapter(requireContext(), android.R.layout.simple_spinner_dropdown_item, livelli)
 
+        val adapterLivelli = ArrayAdapter(requireContext(), R.layout.spinner_item_scuro, livelli)
+        adapterLivelli.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = adapterLivelli
+
         var dataNascitaScelta = ""
         var dataCertScelta = ""
 
@@ -98,24 +102,33 @@ class GestioneAtleteFragment : Fragment() {
             }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH)).show()
         }
 
-        AlertDialog.Builder(requireContext())
-            .setTitle("Nuova Ginnasta")
+        // Creiamo il Dialog senza titolo e bottoni di sistema
+        val dialog = AlertDialog.Builder(requireContext())
             .setView(dialogView)
-            .setPositiveButton("Salva") { _, _ ->
-                val nome = etNome.text.toString().trim()
-                val cognome = etCognome.text.toString().trim()
-                val livello = spinner.selectedItem.toString()
+            .create()
 
-                // Leggiamo l'email inserita e la forziamo in minuscolo per evitare mancati "match" futuri
-                val emailAtleta = etEmailAtleta.text.toString().trim().lowercase()
+        // Rendiamo lo sfondo trasparente per eliminare le cornici grigie
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT))
 
-                if (nome.isNotEmpty() && cognome.isNotEmpty() && dataNascitaScelta.isNotEmpty()) {
-                    // Passiamo anche l'emailAtleta come sesto parametro al ViewModel
-                    viewModel.aggiungiAtleta(nome, cognome, livello, dataNascitaScelta, dataCertScelta, emailAtleta)
-                } else {
-                    Toast.makeText(requireContext(), "Nome, Cognome e Data Nascita sono obbligatori!", Toast.LENGTH_LONG).show()
-                }
-            }.show()
+        //Colleghiamo il nuovo bottone Salva che inserirai nell'XML
+        val btnSalva = dialogView.findViewById<Button>(R.id.btnSalvaPersonalizzato)
+
+        btnSalva.setOnClickListener {
+            val nome = etNome.text.toString().trim()
+            val cognome = etCognome.text.toString().trim()
+            val livello = spinner.selectedItem.toString()
+            val emailAtleta = etEmailAtleta.text.toString().trim().lowercase()
+
+            if (nome.isNotEmpty() && cognome.isNotEmpty() && dataNascitaScelta.isNotEmpty()) {
+                viewModel.aggiungiAtleta(nome, cognome, livello, dataNascitaScelta, dataCertScelta, emailAtleta)
+                dialog.dismiss() // Chiude il popup se il salvataggio va a buon fine
+            } else {
+                Toast.makeText(requireContext(), "Nome, Cognome e Data Nascita sono obbligatori!", Toast.LENGTH_LONG).show()
+            }
+        }
+
+        //Mostriamo il popup
+        dialog.show()
     }
 
     override fun onDestroyView() {
